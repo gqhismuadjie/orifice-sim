@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rekalibrasi ISO 5167 Lab — DP Flow &amp; Orifice Plate Simulator</title>
+<meta name="description" content="Interactive, offline-capable differential-pressure flow-measurement and orifice-plate learning lab based on ISO 5167 concepts. Educational estimator — not for custody transfer.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e7490'/%3E%3Ctext x='16' y='21' font-family='monospace' font-size='13' font-weight='700' fill='%23e7fbff' text-anchor='middle'%3ER5%3C/text%3E%3C/svg%3E">
+<!-- React/ReactDOM are vendored locally so the app runs fully offline on GitHub Pages
+     (no runtime CDN dependency). support.js reuses window.React if it is already present. -->
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+:root{--bg:#0b1016;--panel:#141b24;--panel2:#0e141c;--elev:#1a222e;--border:#283645;--fg:#e7eef9;--muted:#93a3bd;--faint:#647388;--accent:#22d3ee;--accent-d:#0e7490;--amber:#f5a524;--green:#3ddc84;--red:#f87171;--blue:#60a5fa;--shadow:0 8px 28px rgba(0,0,0,.45);--grid:rgba(146,163,189,.10);--screen:#05090d;--screen-fg:#43e0ad;--screen-glow:0 0 6px rgba(67,224,173,.55);--bezel-hi:rgba(255,255,255,.05);--bezel-lo:rgba(0,0,0,.45);--rack:#090d13;}
+[data-theme="light"]{--bg:#c9c7bd;--panel:#e9e7df;--panel2:#dbd9cf;--elev:#f3f1ea;--border:#aeab9f;--fg:#1b1b14;--muted:#4f4f43;--faint:#7c7c6e;--accent:#0c7c8c;--accent-d:#0a5560;--amber:#a85d00;--green:#1f7a4d;--red:#b32820;--blue:#255fb0;--shadow:0 6px 18px rgba(50,48,38,.22);--grid:rgba(70,68,54,.13);--screen:#0c140f;--screen-fg:#53e0ac;--screen-glow:0 0 6px rgba(83,224,172,.4);--bezel-hi:rgba(255,255,255,.75);--bezel-lo:rgba(0,0,0,.20);--rack:#bab8ac;}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:'Segoe UI',Tahoma,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased}
+input,select,button,textarea{font-family:inherit}
+input[type=number]::-webkit-inner-spin-button{opacity:.5;height:18px}
+select{appearance:none;-webkit-appearance:none}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px}
+::-webkit-scrollbar-track{background:transparent}
+/* ---- instrument front-panel layer (MATLAB/LabVIEW-style) ---- */
+.rk-canvas{background-color:var(--bg);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:26px 26px;background-position:-1px -1px}
+.rk-screen{background:var(--screen)!important;border:1px solid var(--border)!important;box-shadow:inset 0 2px 9px rgba(0,0,0,.6)}
+.rk-screen .rk-val{color:var(--screen-fg)!important;text-shadow:var(--screen-glow);font-family:Consolas,'Lucida Console',monospace}
+.rk-screen .rk-sub,.rk-screen .rk-cap{color:#5b8f7d!important}
+.rk-led{display:inline-block;width:9px;height:9px;border-radius:50%;box-shadow:0 0 7px currentColor,inset 0 0 2px rgba(255,255,255,.55)}
+.rk-led-pulse{animation:ledblink 1.5s ease-in-out infinite}
+.rk-toolbar{display:flex;align-items:center;gap:12px;height:36px;flex:none;padding:0 18px;background:var(--rack);border-bottom:1px solid var(--border);box-shadow:inset 0 1px 0 var(--bezel-hi)}
+.rk-tbtn{display:flex;align-items:center;gap:5px;height:23px;padding:0 9px;border-radius:5px;border:1px solid var(--border);background:var(--panel2);color:var(--muted);font:600 10px/1 'Segoe UI',Tahoma,sans-serif;letter-spacing:.04em;box-shadow:inset 0 1px 0 var(--bezel-hi)}
+.rk-bezel{box-shadow:inset 0 1px 0 var(--bezel-hi),0 1px 2px var(--bezel-lo)}
+@keyframes flowdash{to{stroke-dashoffset:-28}}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes ledblink{0%,100%{opacity:1}50%{opacity:.5}}
+@media print{.noprint{display:none!important}.rk-canvas{background-image:none!important}}
+</style>
+</helmet>
+<div data-theme="{{ theme }}" style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--bg);color:var(--fg)">
+
+  <aside class="noprint" style="width:236px;flex:none;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--border)">
+    <div style="padding:18px 18px 14px;border-bottom:1px solid var(--border);display:flex;gap:11px;align-items:center">
+      <div style="width:34px;height:34px;flex:none;border-radius:9px;background:linear-gradient(140deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;color:#04121a;font:700 15px/1 Consolas,'Lucida Console',monospace;box-shadow:0 0 0 1px var(--border)">R5</div>
+      <div style="min-width:0">
+        <div style="font:700 13px/1.15 'Segoe UI',Tahoma,sans-serif;letter-spacing:-.01em">Rekalibrasi</div>
+        <div style="font:500 10px/1.2 Consolas,'Lucida Console',monospace;color:var(--muted);letter-spacing:.04em">ISO 5167 LAB</div>
+      </div>
+    </div>
+    <nav style="flex:1;overflow-y:auto;padding:10px 10px 18px;display:flex;flex-direction:column;gap:2px">
+      <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="14">
+        <sc-if value="{{ n.isHeader }}" hint-placeholder-val="{{ false }}"><div style="padding:13px 11px 5px;font:600 9px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.1em">{{ n.label }}</div></sc-if>
+        <sc-if value="{{ n.isBtn }}" hint-placeholder-val="{{ true }}">
+        <button data-field="page" data-val="{{ n.id }}" onClick="{{ onNavClick }}" style="{{ n.style }}">
+          <span style="display:flex;width:18px;height:18px;flex:none;color:{{ n.icColor }}">{{ n.icon }}</span>
+          <span style="flex:1;text-align:left">{{ n.label }}</span>
+          <sc-if value="{{ n.dot }}" hint-placeholder-val="{{ false }}"><span style="width:6px;height:6px;border-radius:50%;background:var(--accent)"></span></sc-if>
+        </button>
+        </sc-if>
+      </sc-for>
+    </nav>
+    <div style="padding:12px 14px;border-top:1px solid var(--border);font:500 9.5px/1.4 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.03em">EDUCATIONAL ESTIMATOR · NOT FOR CUSTODY TRANSFER</div>
+  </aside>
+
+  <main style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <header class="noprint" style="flex:none;height:60px;display:flex;align-items:center;gap:14px;padding:0 22px;border-bottom:1px solid var(--border);background:var(--panel)">
+      <div style="font:600 15px/1 'Segoe UI',Tahoma,sans-serif;letter-spacing:-.01em">{{ pageTitle }}</div>
+      <div style="flex:1"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <sc-for list="{{ statusBadges }}" as="b" hint-placeholder-count="4">
+          <div style="{{ b.style }}">
+            <span style="color:var(--faint);font:500 9px/1 Consolas,'Lucida Console',monospace;letter-spacing:.06em;text-transform:uppercase">{{ b.label }}</span>
+            <span style="color:{{ b.color }};font:600 11px/1 'Segoe UI',Tahoma,sans-serif">{{ b.value }}</span>
+          </div>
+        </sc-for>
+        <button onClick="{{ onStartTour }}" title="Guided tour" style="flex:none;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 12px;font:600 11.5px/1 'Segoe UI',Tahoma,sans-serif"><span style="font-size:13px">🎓</span>Guided tour</button>
+        <button onClick="{{ onToggleTheme }}" title="Toggle theme" style="width:36px;height:36px;flex:none;border-radius:9px;border:1px solid var(--border);background:var(--panel2);color:var(--fg);cursor:pointer;display:flex;align-items:center;justify-content:center">{{ themeIcon }}</button>
+      </div>
+    </header>
+
+    <div class="rk-toolbar noprint">
+      <span style="display:flex;align-items:center;gap:7px;font:600 9.5px/1 Consolas,'Lucida Console',monospace;color:var(--muted);letter-spacing:.09em"><span class="rk-led rk-led-pulse" style="color:var(--green)"></span>ACQUIRING</span>
+      <span class="rk-tbtn" style="color:var(--green)">▶ RUN</span>
+      <span class="rk-tbtn">■ STOP</span>
+      <div style="width:1px;height:18px;background:var(--border)"></div>
+      <span style="font:600 9.5px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.07em">MODE</span>
+      <span style="font:600 10.5px/1 Consolas,'Lucida Console',monospace;color:var(--accent)">{{ toolMode }}</span>
+      <div style="flex:1"></div>
+      <span style="display:flex;align-items:center;gap:7px;font:600 9.5px/1 Consolas,'Lucida Console',monospace;letter-spacing:.05em;color:{{ compColor }}"><span class="rk-led" style="color:{{ compColor }}"></span>{{ compLabel }}</span>
+      <span style="font:600 8.5px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.12em">FRONT&nbsp;PANEL</span>
+    </div>
+
+    <div class="rk-canvas" style="flex:1;overflow-y:auto;padding:24px 26px 60px">
+
+      <!-- DASHBOARD -->
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+        <div style="max-width:1180px">
+          <div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:6px">
+            <div>
+              <h1 style="margin:0;font:700 26px/1.1 'Segoe UI',Tahoma,sans-serif;letter-spacing:-.02em">Differential Pressure Flow Lab</h1>
+              <p style="margin:7px 0 0;font:400 13.5px/1.5 'Segoe UI',Tahoma,sans-serif;color:var(--muted);max-width:640px">Interactive orifice-plate sizing, simulation and uncertainty estimation based on ISO 5167 concepts. Every result is an engineering estimate — verify against the official standard before final design.</p>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin:22px 0 8px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+              <div class="rk-bezel" style="flex:1;min-width:170px;background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:14px 15px">
+                <div style="font:500 10px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.06em;text-transform:uppercase">{{ k.label }}</div>
+                <div style="margin-top:9px;background:var(--screen);border:1px solid var(--border);border-radius:8px;padding:9px 11px;display:flex;align-items:baseline;gap:6px;box-shadow:inset 0 2px 8px rgba(0,0,0,.5)">
+                  <span style="font:600 24px/1 Consolas,'Lucida Console',monospace;color:{{ k.color }};text-shadow:0 0 7px currentColor;letter-spacing:.01em">{{ k.value }}</span>
+                  <span style="font:500 11px/1 'Segoe UI',Tahoma,sans-serif;color:#5b8f7d">{{ k.unit }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px;margin-top:18px">
+            <sc-for list="{{ dashCards }}" as="c" hint-placeholder-count="6">
+              <button data-field="page" data-val="{{ c.id }}" onClick="{{ onNavClick }}" style="text-align:left;cursor:pointer;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s,transform .15s" style-hover="border-color:var(--accent);transform:translateY(-2px)">
+                <div style="display:flex;align-items:center;gap:11px">
+                  <span style="width:38px;height:38px;flex:none;border-radius:10px;background:var(--panel2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--accent)">{{ c.icon }}</span>
+                  <div style="font:600 14px/1.15 'Segoe UI',Tahoma,sans-serif;color:var(--fg)">{{ c.title }}</div>
+                </div>
+                <div style="font:400 12px/1.5 'Segoe UI',Tahoma,sans-serif;color:var(--muted)">{{ c.desc }}</div>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="margin-top:18px;background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:15px 17px;display:flex;gap:12px;align-items:flex-start">
+            <span style="color:var(--blue);flex:none;margin-top:1px">{{ infoIcon }}</span>
+            <p style="margin:0;font:400 12.5px/1.55 'Segoe UI',Tahoma,sans-serif;color:var(--muted)">This application is for engineering learning, preliminary calculation and sanity-checking only. It does not replace the official ISO 5167 standard, certified flow-computer software, vendor sizing software, laboratory calibration, or review by a qualified engineer.</p>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ORIFICE CALCULATOR -->
+      <sc-if value="{{ isCalc }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+
+          <!-- inputs -->
+          <div style="flex:0 0 268px;display:flex;flex-direction:column;gap:14px">
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px">
+              <div style="display:flex;align-items:center;gap:6px;font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:11px">Worked examples <span style="color:var(--faint);font-weight:500;text-transform:none;letter-spacing:0">· one click to load</span></div>
+              {{ examplesRow }}
+            </div>
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px">
+              <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:11px">Calculation mode</div>
+              <select data-field="mode" onChange="{{ onFieldInput }}" value="{{ mode }}" style="width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--fg);font:500 12.5px/1 'Segoe UI',Tahoma,sans-serif;padding:9px 10px">
+                <option value="solve_flow_from_dp">Solve flow Q from ΔP</option>
+                <option value="solve_dp_from_flow">Solve ΔP from target flow</option>
+                <option value="solve_bore_from_flow">Solve bore d from target flow</option>
+                <option value="solve_beta_from_flow">Solve β from target flow</option>
+                <option value="solve_dp_from_volflow">Solve ΔP from target volume flow</option>
+                <option value="solve_flow_at_span">Flow at transmitter span (URL)</option>
+              </select>
+              <sc-if value="{{ showTarget }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:11px;display:flex;flex-direction:column;gap:11px">{{ targetFields }}</div>
+              </sc-if>
+            </div>
+
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px;display:flex;flex-direction:column;gap:11px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase">Fluid</div>
+                <select data-field="fluidPreset" onChange="{{ onFieldInput }}" value="{{ fluidPreset }}" style="background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--muted);font:500 10.5px/1 'Segoe UI',Tahoma,sans-serif;padding:5px 7px;max-width:130px">
+                  <sc-for list="{{ presetOptions }}" as="p" hint-placeholder-count="4"><option value="{{ p }}">{{ p }}</option></sc-for>
+                </select>
+              </div>
+              {{ fluidFields }}
+            </div>
+
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px;display:flex;flex-direction:column;gap:11px">
+              <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase">Pipe</div>
+              {{ pipeFields }}
+            </div>
+
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px;display:flex;flex-direction:column;gap:11px">
+              <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase">Orifice &amp; taps</div>
+              {{ orificeFields }}
+              <label style="display:flex;flex-direction:column;gap:5px">
+                <span style="font:500 10px/1 Consolas,'Lucida Console',monospace;color:var(--muted);letter-spacing:.03em;text-transform:uppercase">Tapping type</span>
+                <select data-field="tapping" onChange="{{ onFieldInput }}" value="{{ tapping }}" style="background:var(--panel2);border:1px solid var(--border);border-radius:7px;color:var(--fg);font:500 12px/1 'Segoe UI',Tahoma,sans-serif;padding:8px 9px">
+                  <option value="corner">Corner taps</option>
+                  <option value="flange">Flange taps</option>
+                  <option value="d_d2">D and D/2 taps</option>
+                  <option value="custom">Custom (adjust on Tapping page)</option>
+                </select>
+              </label>
+            </div>
+
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px;display:flex;flex-direction:column;gap:11px">
+              <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase">Measurement &amp; coefficients</div>
+              {{ measFields }}
+              {{ coefFields }}
+            </div>
+          </div>
+
+          <!-- results -->
+          <div style="flex:1 1 320px;min-width:300px;display:flex;flex-direction:column;gap:16px">
+            <div class="rk-screen rk-bezel" style="border-radius:13px;padding:16px 18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+              <div>
+                <div class="rk-cap" style="font:500 10px/1 Consolas,'Lucida Console',monospace;color:var(--screen-fg);letter-spacing:.06em;text-transform:uppercase">{{ heroLabel }}</div>
+                <div style="display:flex;align-items:baseline;gap:8px;margin-top:7px">
+                  <span class="rk-val" style="font:700 34px/1 Consolas,'Lucida Console',monospace;letter-spacing:.01em">{{ heroValue }}</span>
+                  <span class="rk-sub" style="font:500 13px/1 'Segoe UI',Tahoma,sans-serif">{{ heroUnit }}</span>
+                </div>
+              </div>
+              <div style="flex:1"></div>
+              <div class="rk-sub" style="font:500 11px/1.8 Consolas,'Lucida Console',monospace;text-align:right">{{ heroSub1 }}<br/>{{ heroSub2 }}</div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(135px,1fr));gap:11px">
+              <sc-for list="{{ resultCards }}" as="r" hint-placeholder-count="8">
+                <div style="{{ r.style }}">
+                  <div style="font:500 9.5px/1.2 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.05em;text-transform:uppercase">{{ r.label }}</div>
+                  <div style="margin-top:8px;display:flex;align-items:baseline;gap:5px">
+                    <span style="font:600 21px/1 Consolas,'Lucida Console',monospace;color:{{ r.color }};letter-spacing:-.01em">{{ r.value }}</span>
+                    <span style="font:500 10.5px/1 'Segoe UI',Tahoma,sans-serif;color:var(--muted)">{{ r.unit }}</span>
+                  </div>
+                  <sc-if value="{{ r.sub }}" hint-placeholder-val="{{ false }}"><div style="margin-top:4px;font:400 10px/1.3 Consolas,'Lucida Console',monospace;color:var(--faint)">{{ r.sub }}</div></sc-if>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+                <div style="font:600 12px/1 'Segoe UI',Tahoma,sans-serif">ΔP → Q response curve</div>
+                <div style="font:400 10.5px/1 Consolas,'Lucida Console',monospace;color:var(--faint)">current operating point marked</div>
+              </div>
+              {{ calcChart }}
+            </div>
+
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+                <div style="font:600 12px/1 'Segoe UI',Tahoma,sans-serif">Show working — the equation with your numbers</div>
+                <button onClick="{{ onToggleMath }}" style="cursor:pointer;border:1px solid var(--border);background:var(--panel2);color:var(--accent);border-radius:8px;padding:6px 11px;font:600 11px/1 'Segoe UI',Tahoma,sans-serif">{{ mathToggleLabel }}</button>
+              </div>
+              <sc-if value="{{ showMath }}" hint-placeholder-val="{{ true }}">{{ mathPanel }}</sc-if>
+            </div>
+
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:11px">
+                <div style="font:600 12px/1 'Segoe UI',Tahoma,sans-serif">Solver iteration history</div>
+                <div style="font:400 10.5px/1 Consolas,'Lucida Console',monospace;color:var(--faint)">{{ iterSummary }}</div>
+              </div>
+              <div style="overflow-x:auto">
+                <table style="width:100%;border-collapse:collapse;font:500 11.5px/1 Consolas,'Lucida Console',monospace">
+                  <thead><tr>
+                    <sc-for list="{{ iterCols }}" as="c" hint-placeholder-count="4"><th style="text-align:right;padding:7px 10px;color:var(--faint);font-weight:500;border-bottom:1px solid var(--border);white-space:nowrap">{{ c }}</th></sc-for>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ iterRows }}" as="row" hint-placeholder-count="5">
+                      <tr style="{{ row.style }}">
+                        <sc-for list="{{ row.cells }}" as="cell" hint-placeholder-count="4"><td style="text-align:right;padding:7px 10px;color:var(--fg);border-bottom:1px solid var(--grid);white-space:nowrap">{{ cell }}</td></sc-for>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap" class="noprint">
+              <button onClick="{{ onSaveScenario }}" style="{{ btnPrimary }}">Save scenario</button>
+              <button onClick="{{ onGoReport }}" style="{{ btnGhost }}">Open report</button>
+            </div>
+          </div>
+
+          <!-- notes -->
+          <div style="flex:1 1 270px;min-width:250px;display:flex;flex-direction:column;gap:14px">
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px">
+              <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Governing equations</div>
+              <div style="background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px 13px;font:500 12px/1.9 Consolas,'Lucida Console',monospace;color:var(--fg);overflow-x:auto;white-space:nowrap">qm = C·ε·(π/4)·d²·√(2·Δp·ρ₁) ⁄ √(1−β⁴)<br/>qv = qm ⁄ ρ<br/>Re_D = 4·qm ⁄ (π·μ·D)<br/>Re_d = Re_D ⁄ β</div>
+            </div>
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px">
+              <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Assumptions</div>
+              <ul style="margin:0;padding-left:16px;display:flex;flex-direction:column;gap:7px">
+                <sc-for list="{{ assumptions }}" as="a" hint-placeholder-count="4"><li style="font:400 11.5px/1.45 'Segoe UI',Tahoma,sans-serif;color:var(--muted)">{{ a }}</li></sc-for>
+              </ul>
+            </div>
+            <div style="{{ compBoxStyle }}">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span class="rk-led" style="color:{{ compColor }};background:{{ compColor }}"></span>
+                <span style="font:600 12px/1 'Segoe UI',Tahoma,sans-serif;color:{{ compColor }}">{{ compLabel }}</span>
+              </div>
+              <p style="margin:0;font:400 11px/1.5 'Segoe UI',Tahoma,sans-serif;color:var(--muted)">{{ compDesc }}</p>
+            </div>
+            <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px">
+              <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Warnings ({{ warnCount }})</div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ warnings }}" as="w" hint-placeholder-count="2">
+                  <div style="display:flex;gap:9px;align-items:flex-start">
+                    <span style="width:7px;height:7px;border-radius:2px;flex:none;margin-top:4px;background:{{ w.color }}"></span>
+                    <div>
+                      <div style="font:600 11.5px/1.35 'Segoe UI',Tahoma,sans-serif;color:var(--fg)">{{ w.msg }}</div>
+                      <div style="font:400 10.5px/1.4 'Segoe UI',Tahoma,sans-serif;color:var(--faint);margin-top:2px">{{ w.action }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noWarnings }}" hint-placeholder-val="{{ false }}"><div style="font:400 11.5px/1.4 'Segoe UI',Tahoma,sans-serif;color:var(--green)">No range violations detected for the current inputs.</div></sc-if>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <div>{{ extraPages }}</div>
+
+    </div>
+
+    <footer class="noprint" style="flex:none;display:flex;align-items:center;padding:0 22px;border-top:1px solid var(--border);background:var(--panel);overflow-x:auto;white-space:nowrap">
+      <sc-for list="{{ footStats }}" as="s" hint-placeholder-count="7">
+        <div style="display:flex;align-items:baseline;gap:7px;padding:9px 14px 9px 0;margin-right:14px;border-right:1px solid var(--border)">
+          <span style="font:500 9px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.06em;text-transform:uppercase">{{ s.label }}</span>
+          <span style="font:600 12px/1 Consolas,'Lucida Console',monospace;color:{{ s.color }}">{{ s.value }}</span>
+        </div>
+      </sc-for>
+    </footer>
+  </main>
+  {{ tourOverlay }}
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:840}}">
+const e = React.createElement;
+
+class Component extends DCLogic {
+  FMETA = {
+    'fluid.densityKgM3':{uk:'rho',cat:'density',label:'Density',step:'0.1',help:'Fluid mass density ρ₁ at the upstream (p₁) conditions. Drives the √(2·ΔP·ρ) term — denser fluid ⇒ more mass flow for the same ΔP.'},
+    'fluid.dynamicViscosityPaS':{uk:'mu',cat:'viscosity',label:'Dynamic viscosity',step:'0.001',help:'Dynamic viscosity μ. Sets the pipe Reynolds number Re_D = 4·qm/(π·μ·D), which in turn drives the discharge coefficient.'},
+    'fluid.temperatureC':{uk:'temp',cat:'temperature',label:'Temperature',step:'0.5',help:'Flowing temperature. Informational here — pick ρ and μ that match this temperature (use the Fluids & Steam Tables page).'},
+    'fluid.pressureAbsPa':{uk:'P',cat:'pressure',label:'Absolute pressure',step:'0.5',help:'Absolute static line pressure p₁ upstream of the plate. Used with κ for the gas expansibility factor ε.'},
+    'pipe.pipeInsideDiameterM':{uk:'D',cat:'length',label:'Pipe inside Ø (D)',step:'0.5',help:'Internal pipe bore D at the measurement section (running full). β = d/D and the pipe area both depend on it.'},
+    'pipe.pipeRoughnessM':{uk:'rgh',cat:'length_mm',label:'Pipe roughness',step:'0.005',help:'Absolute internal roughness. In full ISO 5167-2 it applies a small correction to C; here it is informational.'},
+    'orifice.orificeBoreM':{uk:'d',cat:'length',label:'Orifice bore (d)',step:'0.5',help:'Bore diameter d of the orifice (at flowing temperature). Linked to β — editing one updates the other.'},
+    'orifice.beta':{uk:null,cat:'unitless',label:'Beta ratio β',step:'0.01',help:'Diameter ratio β = d/D. The dominant geometric parameter. Standard orifice correlations are validated for roughly 0.1–0.75.'},
+    'meas.differentialPressurePa':{uk:'DP',cat:'pressure',label:'Differential pressure ΔP',step:'0.5',help:'Measured pressure drop p₁ − p₂ across the plate. Flow rises with √ΔP, so a 4× ΔP gives only 2× flow.'},
+    'meas.staticPressurePa':{uk:'P2',cat:'pressure',label:'Static line pressure',step:'0.5',help:'Static line pressure used to sanity-check ΔP/p₁ for gases (large ratios need ε < 1).'},
+    'meas.dpRangePa':{uk:'DP',cat:'pressure',label:'DP transmitter span (URL)',step:'1',help:'Upper range limit of the DP transmitter — the ΔP that corresponds to full-scale flow (used in the “Flow at span” mode).'},
+    'coef.C':{uk:null,cat:'unitless',label:'Discharge coefficient C',step:'0.001',help:'Ratio of actual to ideal flow (accounts for the vena-contracta jet). Manual mode: you enter it. ISO model: computed from Reader–Harris/Gallagher.'},
+    'coef.eps':{uk:null,cat:'unitless',label:'Expansibility ε',step:'0.001',help:'Expansibility (expansion) factor. ε = 1 for liquids; ε < 1 for gases/steam to correct for density change across the plate.'},
+    'coef.kappa':{uk:null,cat:'unitless',label:'Isentropic exponent κ',step:'0.01',help:'Ratio of specific heats κ (≈ cp/cv). Air/diatomic ≈ 1.4, natural gas ≈ 1.3, superheated steam ≈ 1.3. Only used for the gas expansibility factor.'},
+    'target.massFlow':{uk:'Fm',cat:'flowmass',label:'Target mass flow',step:'0.01',help:'The mass flow you want the device to produce — the solver back-calculates ΔP, bore, or β to hit it.'},
+    'target.volFlow':{uk:'Fv',cat:'flowvol',label:'Target volume flow',step:'0.1',help:'The volumetric flow you want — internally converted to mass flow via ρ before solving.'},
+  };
+  UNITS = {
+    length:['mm','inch','m'], length_mm:['mm'],
+    pressure:['kPa','bar','psi','Pa','mmH₂O','inH₂O'],
+    density:['kg/m³','SG'], viscosity:['cP','Pa·s'],
+    temperature:['°C','K','°F'], flowmass:['kg/s','kg/h'], flowvol:['m³/h','m³/s','L/min','GPM'],
+  };
+  PRESETS = {
+    'Water 20°C':{rho:998.2,mu:1.002,muU:'cP',type:'liquid'},
+    'Water 25°C':{rho:997.0,mu:0.890,muU:'cP',type:'liquid'},
+    'Water 80°C':{rho:971.8,mu:0.355,muU:'cP',type:'liquid'},
+    'Air ~ 1 bar':{rho:1.204,mu:0.0181,muU:'cP',type:'gas'},
+    'Natural gas ~':{rho:0.78,mu:0.0110,muU:'cP',type:'gas'},
+    'Custom':null,
+  };
+
+  state = {
+    page:'dashboard', theme:'dark', mode:'solve_flow_from_dp',
+    tapping:'flange', fluidPreset:'Water 20°C', fluidLabel:'Water 20°C',
+    tapUpD:'0.25', tapDownD:'0.25', fluidTab:'liquid', fluidQ:'', simRegime:'auto',
+    vals:{
+      'fluid.densityKgM3':'998.2','fluid.dynamicViscosityPaS':'1.002','fluid.temperatureC':'20','fluid.pressureAbsPa':'101.325',
+      'pipe.pipeInsideDiameterM':'100','pipe.pipeRoughnessM':'0.045',
+      'orifice.orificeBoreM':'60','orifice.beta':'0.6',
+      'meas.differentialPressurePa':'25','meas.staticPressurePa':'101.325','meas.dpRangePa':'62.5',
+      'coef.C':'0.606','coef.eps':'1','coef.kappa':'1.4','target.massFlow':'4.5','target.volFlow':'45',
+    },
+    // coefModel: 'manual' = user-entered C/ε (default) · 'iso' = C from Reader–Harris/Gallagher, ε from ISO 5167-2 eqn
+    coefModel:'manual', compressible:false, showMath:false,
+    // guided tour / onboarding
+    tourOn:false, tourStep:0,
+    units:{rho:'kg/m³',mu:'cP',temp:'°C',P:'kPa',D:'mm',d:'mm',DP:'kPa',P2:'kPa',Fm:'kg/s',Fv:'m³/h',rgh:'mm'},
+    // uncertainty (%)
+    unc:{C:0.5,eps:0.0,d:0.05,D:0.4,dP:0.30,rho:0.10,install:0.0,mode:'iso'},
+    // installation
+    inst:{up:'elbow90',down:'longStraight',upLen:'18',downLen:'6',cond:false,condType:'zanker',straight:'good',circ:'good',clean:'clean',roughKnown:true,drain:false},
+    // conditioner
+    condSel:'zanker',
+    // simulation
+    simVar:'dP',
+    scenarios:[], scenarioName:'(unsaved)',
+  };
+
+  componentDidMount(){
+    try{ const raw=localStorage.getItem('iso5167_scenarios'); if(raw) this.setState({scenarios:JSON.parse(raw)}); }catch(_){}
+  }
+
+  /* ---------- unit conversion ---------- */
+  toSI(v,cat,u){
+    if(!isFinite(v)) v=0;
+    switch(cat){
+      case 'length': return u==='mm'?v/1000:u==='inch'?v*0.0254:v;
+      case 'length_mm': return v/1000;
+      case 'pressure': return ({kPa:1000,bar:1e5,psi:6894.757,Pa:1,'mmH₂O':9.80665,'inH₂O':249.0889}[u]||1)*v;
+      case 'density': return u==='SG'?v*1000:v;
+      case 'viscosity': return u==='cP'?v/1000:v;
+      case 'temperature': return u==='K'?v-273.15:u==='°F'?(v-32)*5/9:v;
+      case 'flowmass': return u==='kg/h'?v/3600:v;
+      case 'flowvol': return ({'m³/s':1,'m³/h':1/3600,'L/min':1/60000,GPM:1/15850.323}[u]||1)*v;
+      default: return v;
+    }
+  }
+  fromSI(v,cat,u){
+    switch(cat){
+      case 'length': return u==='mm'?v*1000:u==='inch'?v/0.0254:v;
+      case 'length_mm': return v*1000;
+      case 'pressure': return v/({kPa:1000,bar:1e5,psi:6894.757,Pa:1,'mmH₂O':9.80665,'inH₂O':249.0889}[u]||1);
+      case 'density': return u==='SG'?v/1000:v;
+      case 'viscosity': return u==='cP'?v*1000:v;
+      case 'temperature': return u==='K'?v+273.15:u==='°F'?v*9/5+32:v;
+      case 'flowmass': return u==='kg/h'?v*3600:v;
+      case 'flowvol': return v/({'m³/s':1,'m³/h':1/3600,'L/min':1/60000,GPM:1/15850.323}[u]||1);
+      default: return v;
+    }
+  }
+  num(f){ const v=parseFloat(this.state.vals[f]); return isFinite(v)?v:0; }
+  SI(f){ const m=this.FMETA[f]; if(!m) return this.num(f); if(m.cat==='unitless') return this.num(f); const u=m.uk?this.state.units[m.uk]:undefined; return this.toSI(this.num(f),m.cat,u); }
+  siFrom(vals,f){ const m=this.FMETA[f]; const v=parseFloat(vals[f]); const n=isFinite(v)?v:0; if(m.cat==='unitless') return n; const u=m.uk?this.state.units[m.uk]:undefined; return this.toSI(n,m.cat,u); }
+  fmt(x,sig){ sig=sig||6; if(!isFinite(x)) return '—'; if(x===0) return '0'; const r=parseFloat(x.toPrecision(sig)); return String(r); }
+  fmtFixed(x,d){ return isFinite(x)?x.toFixed(d):'—'; }
+  eng(x){ // adaptive
+    if(!isFinite(x)) return '—';
+    const a=Math.abs(x);
+    if(a!==0&&(a<0.01||a>=1e5)) return x.toExponential(3);
+    if(a>=1000) return x.toFixed(0);
+    if(a>=100) return x.toFixed(1);
+    if(a>=1) return x.toFixed(3);
+    return x.toFixed(5);
+  }
+
+  /* ---------- handlers ---------- */
+  onNavClick = (ev)=>{ const t=ev.currentTarget; this.setState({page:t.dataset.val}); };
+  onToggleTheme = ()=> this.setState(s=>({theme:s.theme==='dark'?'light':'dark'}));
+  onGoReport = ()=> this.setState({page:'report'});
+
+  onFieldInput = (ev)=>{
+    const el=ev.target; const f=el.dataset.field; const v=el.value;
+    if(f==='fluidPreset'){ this.applyPreset(v); return; }
+    if(this.FMETA[f]){
+      const vals={...this.state.vals,[f]:v};
+      // link beta <-> d <-> D
+      const Dm=this.siFrom(vals,'pipe.pipeInsideDiameterM');
+      if(f==='orifice.orificeBoreM'||f==='pipe.pipeInsideDiameterM'){
+        const dm=this.siFrom(vals,'orifice.orificeBoreM');
+        vals['orifice.beta']=this.fmt(Dm>0?dm/Dm:0,4);
+      } else if(f==='orifice.beta'){
+        const b=parseFloat(v)||0; const dm=b*Dm;
+        vals['orifice.orificeBoreM']=this.fmt(this.fromSI(dm,'length',this.state.units.d),5);
+      }
+      const isF=f.startsWith('fluid.');
+      this.setState({vals,fluidPreset:isF?'Custom':this.state.fluidPreset,fluidLabel:isF?'Custom':this.state.fluidLabel});
+    } else {
+      this.setState({[f]:v});
+    }
+  };
+
+  onUnitChange = (ev)=>{
+    const el=ev.target; const uk=el.dataset.unitkey; const nu=el.value;
+    const units={...this.state.units}; const old=units[uk]; const vals={...this.state.vals};
+    Object.keys(this.FMETA).forEach(f=>{ const m=this.FMETA[f]; if(m.uk===uk){ const si=this.toSI(parseFloat(vals[f])||0,m.cat,old); vals[f]=this.fmt(this.fromSI(si,m.cat,nu),5); }});
+    units[uk]=nu; this.setState({units,vals});
+  };
+
+  applyPreset(name){
+    const p=this.PRESETS[name];
+    if(!p){ this.setState({fluidPreset:name,fluidLabel:name}); return; }
+    const vals={...this.state.vals}; const units={...this.state.units};
+    vals['fluid.densityKgM3']=this.fmt(this.fromSI(p.rho,'density',units.rho),5);
+    units.mu=p.muU; vals['fluid.dynamicViscosityPaS']=String(p.mu);
+    this.setState({vals,units,fluidPreset:name,fluidLabel:name});
+  }
+
+  setUnc(k,v){ this.setState(s=>({unc:{...s.unc,[k]:k==='mode'?v:(parseFloat(v)||0)}})); }
+  onUncInput = (ev)=>{ this.setUnc(ev.target.dataset.k, ev.target.value); };
+  onInstInput = (ev)=>{ const el=ev.target; const k=el.dataset.k; let v=el.value; if(el.type==='checkbox') v=el.checked; this.setState(s=>({inst:{...s.inst,[k]:v}})); };
+  onCondSel = (ev)=>{ this.setState({condSel:ev.currentTarget.dataset.val}); };
+  onSimVar = (ev)=>{ this.setState({simVar:ev.currentTarget.dataset.val}); };
+  onCoefModel = (ev)=>{ this.setState({coefModel:ev.currentTarget.dataset.val}); };
+  onToggleCompressible = (ev)=>{ this.setState({compressible:ev.target.checked}); };
+  onToggleMath = ()=> this.setState(s=>({showMath:!s.showMath}));
+  onLoadExample = (ev)=>{ const id=ev.currentTarget.dataset.val; this.loadExample(id); };
+  tourNext = ()=> this.setState(s=>({tourStep:Math.min(s.tourStep+1,this.TOUR.length-1)}));
+  tourPrev = ()=> this.setState(s=>({tourStep:Math.max(s.tourStep-1,0)}));
+  tourJump = (ev)=>{ const p=ev.currentTarget.dataset.page; const st={tourOn:false}; if(p) st.page=p; this.setState(st); };
+  startTour = ()=> this.setState({tourOn:true,tourStep:0});
+  closeTour = ()=> this.setState({tourOn:false});
+
+  /* ---------- scenarios ---------- */
+  persist(list){ try{ localStorage.setItem('iso5167_scenarios',JSON.stringify(list)); }catch(_){} }
+  onSaveScenario = ()=>{
+    const name=prompt('Scenario name','Scenario '+(this.state.scenarios.length+1));
+    if(!name) return;
+    const snap={id:'s'+Date.now(),name,createdAt:new Date().toISOString(),vals:this.state.vals,units:this.state.units,mode:this.state.mode,tapping:this.state.tapping,tapUpD:this.state.tapUpD,tapDownD:this.state.tapDownD,fluidPreset:this.state.fluidPreset,fluidLabel:this.state.fluidLabel};
+    const list=[snap,...this.state.scenarios]; this.persist(list); this.setState({scenarios:list,scenarioName:name});
+  };
+  loadScenario(s){ this.setState({vals:{...s.vals},units:{...s.units},mode:s.mode,tapping:s.tapping,fluidPreset:s.fluidPreset,fluidLabel:s.fluidLabel||s.fluidPreset,tapUpD:s.tapUpD||'0.25',tapDownD:s.tapDownD||'0.25',scenarioName:s.name}); }
+  dupScenario(s){ const c={...s,id:'s'+Date.now(),name:s.name+' copy',createdAt:new Date().toISOString()}; const list=[c,...this.state.scenarios]; this.persist(list); this.setState({scenarios:list}); }
+  delScenario(s){ const list=this.state.scenarios.filter(x=>x.id!==s.id); this.persist(list); this.setState({scenarios:list}); }
+  download(name,text,type){ const b=new Blob([text],{type:type||'text/plain'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+
+  /* ---------- core flow physics ---------- */
+  qmFromDpD(dP,d,ctx){ const b=d/ctx.D; if(b<=0||b>=1) return NaN; return ctx.C*ctx.eps*(Math.PI/4)*d*d*Math.sqrt(2*dP*ctx.rho)/Math.sqrt(1-Math.pow(b,4)); }
+
+  /* Reader–Harris/Gallagher (2000) discharge-coefficient correlation for orifice
+     plates — the equation adopted by ISO 5167-2. Implemented from the published
+     formula (no copyrighted table text reproduced). tapType: corner|flange|d_d2.
+     D_m is the pipe bore in metres, ReD the pipe Reynolds number. */
+  cRHG(beta,ReD,tapType,D_m){
+    const b=Math.min(0.9999,Math.max(1e-4,beta)); const Re=Math.max(1,ReD);
+    const b2=b*b, b4=b2*b2, b8=b4*b4;
+    let L1,L2p; // upstream / downstream tap spacing in pipe diameters
+    if(tapType==='corner'){ L1=0; L2p=0; }
+    else if(tapType==='d_d2'){ L1=1; L2p=0.47; }
+    else { const Dm=D_m>0?D_m:0.05; L1=0.0254/Dm; L2p=0.0254/Dm; } // flange taps = 25.4 mm
+    const M2p=2*L2p/(1-b);
+    const A=Math.pow(19000*b/Re,0.8);
+    let C=0.5961 + 0.0261*b2 - 0.216*b8
+        + 0.000521*Math.pow(1e6*b/Re,0.7)
+        + (0.0188+0.0063*A)*Math.pow(b,3.5)*Math.pow(1e6/Re,0.3)
+        + (0.043+0.080*Math.exp(-10*L1)-0.123*Math.exp(-7*L1))*(1-0.11*A)*b4/(1-b4)
+        - 0.031*(M2p-0.8*Math.pow(M2p,1.1))*Math.pow(b,1.3);
+    if(D_m>0 && D_m<0.07112) C += 0.011*(0.75-b)*(2.8-D_m/0.0254); // small-pipe (<71.12 mm) term
+    return C;
+  }
+  /* ISO 5167-2 expansibility factor for orifice plates (compressible flow). */
+  epsOrifice(beta,dP,p1,kappa){
+    if(!(p1>0)||!(kappa>0)) return 1;
+    const tau=(p1-dP)/p1; if(tau<=0||tau>=1) return tau>=1?1:1;
+    const b4=Math.pow(beta,4);
+    return 1-(0.351+0.256*b4+0.93*Math.pow(beta,8))*(1-Math.pow(tau,1/kappa));
+  }
+  /* Resolve the effective C and ε for a given geometry/flow, honouring the
+     selected coefficient model. Returns {C, eps, source}. */
+  coefFor(beta,ReD,dP){
+    if(this.state.coefModel==='iso'){
+      const C=this.cRHG(beta,ReD,this.state.tapping==='custom'?'flange':this.state.tapping,this.SI('pipe.pipeInsideDiameterM'));
+      const eps=this.state.compressible?this.epsOrifice(beta,dP,this.SI('fluid.pressureAbsPa'),this.num('coef.kappa')||1.4):1;
+      return {C,eps,source:'iso'};
+    }
+    return {C:this.SI('coef.C'),eps:this.SI('coef.eps'),source:'manual'};
+  }
+
+  /* ---------- worked examples (one-click teaching scenarios) ---------- */
+  U0(){ return {rho:'kg/m³',mu:'cP',temp:'°C',P:'kPa',D:'mm',d:'mm',DP:'kPa',P2:'kPa',Fm:'kg/s',Fv:'m³/h',rgh:'mm'}; }
+  EXAMPLES=[
+    {id:'water_basic',name:'① Water — solve Q from ΔP',teach:'The bread-and-butter case: known geometry and ΔP → find mass and volume flow. Note on the response curve that Q grows with √ΔP, so 4× the ΔP gives only 2× the flow.',
+      patch:{mode:'solve_flow_from_dp',coefModel:'manual',compressible:false,fluidPreset:'Water 20°C',fluidLabel:'Water 20°C',tapping:'flange',
+        vals:{'fluid.densityKgM3':'998.2','fluid.dynamicViscosityPaS':'1.002','fluid.temperatureC':'20','fluid.pressureAbsPa':'300','pipe.pipeInsideDiameterM':'100','orifice.orificeBoreM':'60','orifice.beta':'0.6','meas.differentialPressurePa':'25','meas.staticPressurePa':'300','coef.C':'0.606','coef.eps':'1'}}},
+    {id:'iso_auto',name:'② Auto C — Reader–Harris/Gallagher',teach:'Switch the coefficient model to “ISO 5167-2 (auto)”. C is no longer typed — it is computed from β, Re_D and the flange taps and iterated with the Reynolds number. Change β on the Tapping page and watch C respond.',
+      patch:{mode:'solve_flow_from_dp',coefModel:'iso',compressible:false,fluidPreset:'Water 20°C',fluidLabel:'Water 20°C',tapping:'flange',
+        vals:{'fluid.densityKgM3':'998.2','fluid.dynamicViscosityPaS':'1.002','fluid.temperatureC':'20','fluid.pressureAbsPa':'300','pipe.pipeInsideDiameterM':'100','orifice.orificeBoreM':'50','orifice.beta':'0.5','meas.differentialPressurePa':'30','meas.staticPressurePa':'300','coef.C':'0.606','coef.eps':'1'}}},
+    {id:'gas',name:'③ Natural gas — expansibility ε < 1',teach:'A compressible case. With the ISO model and “compressible” enabled, the expansibility factor ε drops below 1 (density falls across the plate), reducing predicted flow versus an incompressible assumption.',
+      patch:{mode:'solve_flow_from_dp',coefModel:'iso',compressible:true,fluidPreset:'Natural gas ~',fluidLabel:'Natural gas ~',tapping:'flange',
+        units:{P:'bar',P2:'bar',Fm:'kg/h'},
+        vals:{'fluid.densityKgM3':'8.4','fluid.dynamicViscosityPaS':'0.011','fluid.temperatureC':'20','fluid.pressureAbsPa':'10','pipe.pipeInsideDiameterM':'150','orifice.orificeBoreM':'90','orifice.beta':'0.6','meas.differentialPressurePa':'50','meas.staticPressurePa':'10','coef.kappa':'1.3'}}},
+    {id:'sizing',name:'④ Size the bore for a target flow',teach:'The reverse problem: fix the flow you need and let the bisection solver find the orifice bore d (and β). The solver iteration history shows it converging step by step.',
+      patch:{mode:'solve_bore_from_flow',coefModel:'iso',compressible:false,fluidPreset:'Water 20°C',fluidLabel:'Water 20°C',tapping:'flange',
+        vals:{'fluid.densityKgM3':'998.2','fluid.dynamicViscosityPaS':'1.002','fluid.temperatureC':'20','fluid.pressureAbsPa':'300','pipe.pipeInsideDiameterM':'100','meas.differentialPressurePa':'25','meas.staticPressurePa':'300','target.massFlow':'8'}}},
+  ];
+  loadExample(id){ const ex=this.EXAMPLES.find(x=>x.id===id); if(!ex) return; const p=ex.patch;
+    this.setState({ ...p, vals:{...this.state.vals,...(p.vals||{})}, units:{...this.U0(),...(p.units||{})}, page:'calculator', scenarioName:ex.name, showMath:true }); }
+
+  /* ---------- "show the math" — the flow equation with numbers substituted ---------- */
+  mathBreakdown(r){
+    const d=r.d, b=r.beta, area=Math.PI/4*d*d, rad=Math.sqrt(2*r.dP*r.rho), den=Math.sqrt(1-Math.pow(b,4));
+    const rows=[
+      ['(π/4)·d²', area.toExponential(4)+' m²', 'bore area  ·  d = '+(d*1000).toFixed(2)+' mm'],
+      ['√(2·ΔP·ρ₁)', rad.toFixed(2), 'ΔP = '+(r.dP/1000).toFixed(3)+' kPa · ρ₁ = '+r.rho.toFixed(1)+' kg/m³'],
+      ['√(1−β⁴)', den.toFixed(5), 'β = '+b.toFixed(4)],
+      ['C', isFinite(r.C)?r.C.toFixed(4):'—', 'discharge coef · '+(r.coefSource==='iso'?'auto (RHG)':'manual')],
+      ['ε', isFinite(r.eps)?r.eps.toFixed(4):'—', 'expansibility'],
+      ['⇒ qm', this.eng(r.qm)+' kg/s', 'C·ε·(π/4)d²·√(2ΔPρ) ⁄ √(1−β⁴)'],
+      ['Re_D = 4qm ⁄ (π·μ·D)', this.eng(r.ReD), 'μ = '+(r.mu*1000).toFixed(3)+' cP · D = '+(r.D*1000).toFixed(1)+' mm'],
+      ['qv = qm ⁄ ρ', this.eng(r.qv*3600)+' m³/h', ''],
+    ];
+    return e('div',{style:{overflowX:'auto'}}, e('table',{style:{width:'100%',borderCollapse:'collapse',font:"500 11.5px Consolas,'Lucida Console',monospace"}}, e('tbody',null,
+      rows.map((row,i)=>e('tr',{key:i,style:{background:i%2?'transparent':'var(--grid)'}},[
+        e('td',{key:'a',style:{padding:'6px 10px',color:'var(--accent)',whiteSpace:'nowrap',borderBottom:'1px solid var(--grid)'}},row[0]),
+        e('td',{key:'b',style:{padding:'6px 10px',color:'var(--fg)',textAlign:'right',whiteSpace:'nowrap',borderBottom:'1px solid var(--grid)'}},row[1]),
+        e('td',{key:'c',style:{padding:'6px 10px',color:'var(--faint)',borderBottom:'1px solid var(--grid)',font:"400 10.5px 'Segoe UI',Tahoma,sans-serif"}},row[2]),
+      ]))
+    )));
+  }
+  examplesRow(){
+    return e('div',{style:{display:'flex',flexDirection:'column',gap:'6px'}}, this.EXAMPLES.map(ex=>
+      e('button',{key:ex.id,'data-val':ex.id,onClick:this.onLoadExample,title:ex.teach,style:{cursor:'pointer',textAlign:'left',border:'1px solid var(--border)',background:'var(--panel2)',color:'var(--fg)',borderRadius:'7px',padding:'7px 9px',font:"500 11px 'Segoe UI',Tahoma,sans-serif"}},ex.name)
+    ));
+  }
+
+  /* ---------- guided tour / onboarding overlay ---------- */
+  TOUR=[
+    {t:'Welcome to the ISO 5167 Lab',b:'An interactive bench for learning differential-pressure (orifice-plate) flow measurement. It produces engineering estimates for study and pre-sizing — not certified custody-transfer results. Step through with the arrows, or jump to any page.',page:'dashboard'},
+    {t:'1 · The orifice principle',b:'A plate with a hole restricts a full-running pipe. The fluid accelerates through the bore and its pressure drops. Flow rises with the square root of that drop ΔP — so 4× the ΔP gives only 2× the flow. That relationship is the heart of this tool.',page:'reference'},
+    {t:'2 · The Orifice Calculator',b:'Enter fluid, pipe, orifice and measurement data on the left; read solved flow, Reynolds number, velocities and warnings on the right. Six modes cover forward (Q from ΔP) and reverse (size the bore, β or ΔP for a target flow) problems.',page:'calculator'},
+    {t:'3 · Manual vs ISO-auto coefficient',b:'The discharge coefficient C can be typed in (Manual) or computed from β, Re_D and the tapping type using the Reader–Harris/Gallagher equation (ISO 5167-2 auto). Switch between them and watch C move with β and Reynolds number.',page:'calculator'},
+    {t:'4 · Worked examples & the maths',b:'On the calculator, the “Worked examples” buttons load four ready-made teaching scenarios — water, auto-C, compressible gas and bore sizing — and open the step-by-step “Show working” panel so you can see every number substituted into the equation.',page:'calculator'},
+    {t:'5 · Tapping & installation',b:'See where corner, flange and D–D/2 taps sit, animate the flow squeezing through the vena contracta, and score your straight-run and fittings against installation guidance.',page:'tapping'},
+    {t:'6 · Sensitivity & uncertainty',b:'Plot how flow responds to ΔP, β, density and Reynolds number, then estimate the combined measurement uncertainty and see which input dominates your error budget.',page:'uncertainty'},
+    {t:'7 · Save, report & reference',b:'Save scenarios to your browser, export JSON / CSV / printable reports, and read the plain-language notes, formulas and glossary in Reference Notes. That’s the tour — happy measuring!',page:'report'},
+  ];
+  renderTour(){
+    if(!this.state.tourOn) return null;
+    const i=Math.min(this.state.tourStep,this.TOUR.length-1); const step=this.TOUR[i]; const last=i===this.TOUR.length-1;
+    const dots=this.TOUR.map((_,k)=>e('span',{key:k,style:{width:'7px',height:'7px',borderRadius:'50%',background:k===i?'var(--accent)':'var(--border)'}}));
+    const nbtn=(label,onClick,primary)=>e('button',{onClick,style:{cursor:'pointer',border:primary?'none':'1px solid var(--border)',background:primary?'var(--accent)':'var(--panel2)',color:primary?'#04121a':'var(--fg)',borderRadius:'9px',padding:'9px 15px',font:"600 12px 'Segoe UI',Tahoma,sans-serif"}},label);
+    return e('div',{style:{position:'fixed',inset:0,zIndex:60,background:'rgba(4,10,20,.62)',backdropFilter:'blur(2px)',display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'},onClick:(ev)=>{ if(ev.target===ev.currentTarget) this.closeTour(); }},
+      e('div',{style:{width:'min(520px,100%)',background:'var(--panel)',border:'1px solid var(--border)',borderRadius:'16px',boxShadow:'var(--shadow)',padding:'22px 24px',display:'flex',flexDirection:'column',gap:'14px'}},[
+        e('div',{key:'top',style:{display:'flex',alignItems:'center',justifyContent:'space-between'}},[
+          e('span',{key:'s',style:{font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--faint)',letterSpacing:'.08em'}},'GUIDED TOUR · '+(i+1)+'/'+this.TOUR.length),
+          e('button',{key:'x',onClick:this.closeTour,style:{cursor:'pointer',border:'none',background:'transparent',color:'var(--muted)',font:'600 16px sans-serif'}},'✕')
+        ]),
+        e('h2',{key:'t',style:{margin:0,font:"700 19px 'Segoe UI',Tahoma,sans-serif",color:'var(--fg)'}},step.t),
+        e('p',{key:'b',style:{margin:0,font:"400 13px/1.6 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)'}},step.b),
+        e('div',{key:'dots',style:{display:'flex',gap:'5px',alignItems:'center'}},dots),
+        e('div',{key:'nav',style:{display:'flex',gap:'10px',marginTop:'4px',flexWrap:'wrap',alignItems:'center'}},[
+          e('button',{key:'go','data-page':step.page,onClick:this.tourJump,style:{cursor:'pointer',border:'1px solid var(--border)',background:'var(--panel2)',color:'var(--accent)',borderRadius:'9px',padding:'9px 14px',font:"600 12px 'Segoe UI',Tahoma,sans-serif"}},'Open this page'),
+          e('div',{key:'sp',style:{flex:1}}),
+          i>0?nbtn('Back',this.tourPrev,false):null,
+          last?nbtn('Finish',this.closeTour,true):nbtn('Next',this.tourNext,true)
+        ])
+      ])
+    );
+  }
+
+  bisect(f,lo,hi,target){
+    const steps=[]; let a=lo,bb=hi,fa=f(a)-target,fb=f(bb)-target,mid=a,fm=fa;
+    if(fa*fb>0){ // expand fallback: clamp
+    }
+    for(let i=0;i<40;i++){ mid=(a+bb)/2; fm=f(mid)-target; steps.push({iteration:i+1,x:mid,y:fm+target,error:Math.abs(fm)}); if(Math.abs(fm)<Math.abs(target)*1e-7||Math.abs(bb-a)<1e-9){ break; } if((f(a)-target)*fm<0){ bb=mid; } else { a=mid; } }
+    return {value:mid,iterations:steps,converged:Math.abs(fm)<Math.abs(target)*1e-5};
+  }
+
+  compute(){
+    const D=this.SI('pipe.pipeInsideDiameterM'), rho=this.SI('fluid.densityKgM3'), mu=this.SI('fluid.dynamicViscosityPaS');
+    let d=this.SI('orifice.orificeBoreM'), beta=D>0?d/D:0, dP=this.SI('meas.differentialPressurePa');
+    const target=this.SI('target.massFlow');
+    const mode=this.state.mode;
+    let cf=this.coefFor(beta,1e5,dP); let ctx={D,rho,C:cf.C,eps:cf.eps};
+    let qm=NaN, iterations=[], solvedKey=null, ReD=NaN;
+    const solveOnce=()=>{
+      const C=ctx.C, eps=ctx.eps;
+      if(mode==='solve_flow_from_dp'){ qm=this.qmFromDpD(dP,d,ctx); solvedKey='qm'; iterations=[{iteration:1,x:dP,y:qm,error:0}]; }
+      else if(mode==='solve_dp_from_flow'){ const b=beta; dP=Math.pow(target*Math.sqrt(1-Math.pow(b,4))/(C*eps*(Math.PI/4)*d*d),2)/(2*rho); qm=target; solvedKey='dP'; iterations=[{iteration:1,x:dP,y:qm,error:0}]; }
+      else if(mode==='solve_bore_from_flow'){ const res=this.bisect((dd)=>this.qmFromDpD(dP,dd,ctx),0.004*D,0.92*D,target); d=res.value; beta=d/D; qm=this.qmFromDpD(dP,d,ctx); iterations=res.iterations; solvedKey='d'; }
+      else if(mode==='solve_beta_from_flow'){ const res=this.bisect((bb)=>this.qmFromDpD(dP,bb*D,ctx),0.05,0.9,target); beta=res.value; d=beta*D; qm=this.qmFromDpD(dP,d,ctx); iterations=res.iterations.map(s=>({...s,x:s.x})); solvedKey='beta'; }
+      else if(mode==='solve_dp_from_volflow'){ const qvT=this.SI('target.volFlow'); const qmT=qvT*rho; const b=beta; dP=Math.pow(qmT*Math.sqrt(1-Math.pow(b,4))/(C*eps*(Math.PI/4)*d*d),2)/(2*rho); qm=qmT; solvedKey='dP'; iterations=[{iteration:1,x:dP,y:qm,error:0}]; }
+      else if(mode==='solve_flow_at_span'){ dP=this.SI('meas.dpRangePa'); qm=this.qmFromDpD(dP,d,ctx); solvedKey='qm'; iterations=[{iteration:1,x:dP,y:qm,error:0}]; }
+      ReD=4*qm/(Math.PI*mu*D);
+    };
+    // When the ISO model is active, C depends on β and Re_D (and therefore on qm),
+    // so iterate the coefficient ↔ solution until it settles.
+    const passes=this.state.coefModel==='iso'?10:1;
+    for(let p=0;p<passes;p++){ solveOnce(); const nc=this.coefFor(beta,ReD,dP); const dc=Math.abs(nc.C-ctx.C)+Math.abs(nc.eps-ctx.eps); ctx={...ctx,C:nc.C,eps:nc.eps}; cf=nc; if(dc<1e-8) break; }
+    const C=ctx.C, eps=ctx.eps, coefSource=cf.source;
+    const qv=qm/rho;
+    const Red=ReD/beta;
+    const Vpipe=qv/(Math.PI*D*D/4); const Vorifice=qv/(Math.PI*d*d/4);
+
+    // validation
+    const warns=[]; const W=(sev,msg,action)=>warns.push({severity:sev,msg,action});
+    if(!(beta>0&&beta<1)) W('error','β is outside (0,1)','Bore must be smaller than the pipe ID.');
+    if(d>=D) W('error','Bore d ≥ pipe ID D','Reduce orifice bore.');
+    if(rho<=0) W('error','Density ≤ 0','Enter a positive fluid density.');
+    if(mu<=0) W('error','Viscosity ≤ 0','Enter a positive dynamic viscosity.');
+    if(dP<=0&&mode!=='solve_dp_from_flow') W('error','ΔP ≤ 0','Enter a positive differential pressure.');
+    if(beta>0&&beta<1){
+      if(beta<0.1||beta>0.75) W('warning','β outside typical 0.1–0.75 band','Orifice coefficient correlations lose validity at extreme β.');
+      if(ReD<5000) W('warning','Pipe Reynolds number is low','Below ~5000 the discharge coefficient is uncertain; verify Re_D range.');
+      if(D<0.05) W('warning','Pipe ID below 50 mm','Small-bore installations need extra scrutiny per ISO 5167-2.');
+    }
+    if(coefSource==='iso'){
+      W('info','C from Reader–Harris/Gallagher correlation','Discharge coefficient computed from β, Re_D and tapping — still verify against ISO 5167-2 for compliant sizing.');
+      if(this.state.compressible) W('info','ε from ISO 5167-2 expansibility equation','Gas expansibility computed from β, ΔP/p₁ and κ.');
+    } else {
+      W('info','Discharge coefficient is a manual / educational value','Switch the coefficient model to “ISO 5167-2 (auto)” to compute C from β and Re_D.');
+      if(eps!==1) W('info','Compressible expansibility entered manually','ε is user-supplied, not from the ISO 5167-2 equation.');
+    }
+    if(this.state.tapping==='custom') W('warning','Custom tap positions','Non-standard tap spacing — standard coefficient correlations do not directly apply.');
+    else W('info','Tap geometry is conceptual','Exact tap location effects require the ISO 5167-2 implementation.');
+    const PstatV=this.SI('meas.staticPressurePa');
+    if(eps===1&&PstatV>0&&dP>0.05*PstatV) W('warning','Large ΔP relative to line pressure with ε = 1','For gases and steam apply an expansibility factor (ε < 1).');
+    if(this.state.vals['orifice.beta']==='') {}
+
+    const errs=warns.filter(w=>w.severity==='error').length;
+    const wcount=warns.filter(w=>w.severity==='warning').length;
+    let status = errs?'OUT_OF_RANGE':(wcount?'VALID_WITH_WARNING':'EDUCATIONAL_ESTIMATE');
+    return {D,rho,mu,C,eps,coefSource,d,beta,dP,qm,qv,ReD,Red,Vpipe,Vorifice,iterations,solvedKey,warns,status,target};
+  }
+
+  /* ---------- uncertainty ---------- */
+  uncResult(r){
+    const u=this.state.unc; const b=r.beta; const b4=Math.min(0.999,Math.pow(b,4));
+    const cC=u.C/100, ceps=u.eps/100, cd=u.d/100, cD=u.D/100, cdP=u.dP/100, crho=u.rho/100;
+    const edu=u.mode==='edu';
+    const kd = edu?2:(2/(1-b4));
+    const kD = edu?2:(2*b4/(1-b4));
+    const terms=[
+      {k:'Discharge C', val:cC, contrib:Math.pow(cC,2), color:'var(--accent)'},
+      {k:'Expansibility ε', val:ceps, contrib:Math.pow(ceps,2), color:'var(--blue)'},
+      {k:'Bore d', val:kd*cd, contrib:Math.pow(kd*cd,2), color:'var(--green)'},
+      {k:'Pipe D', val:kD*cD, contrib:Math.pow(kD*cD,2), color:'var(--amber)'},
+      {k:'ΔP', val:0.5*cdP, contrib:Math.pow(0.5*cdP,2), color:'#a78bfa'},
+      {k:'Density ρ', val:0.5*crho, contrib:Math.pow(0.5*crho,2), color:'var(--red)'},
+    ];
+    const rss=Math.sqrt(terms.reduce((s,t)=>s+t.contrib,0));
+    const combined = u.install>0 ? rss + u.install/100 : rss; // install added arithmetically if selected
+    const totalContrib=terms.reduce((s,t)=>s+t.contrib,0)||1;
+    terms.forEach(t=>t.pct=100*t.contrib/totalContrib);
+    return {terms,rss,combined,absQm:combined*r.qm,absQv:combined*r.qv};
+  }
+
+  /* ---------- installation ---------- */
+  INST_FITTINGS={ longStraight:{l:'Long straight pipe',up:5,down:4}, elbow90:{l:'Single 90° elbow',up:18,down:6}, dblSame:{l:'Two 90° elbows, same plane',up:22,down:6}, dblDiff:{l:'Two 90° elbows, different planes',up:44,down:7}, tee:{l:'Tee junction',up:20,down:6}, reducer:{l:'Reducer',up:9,down:5}, expander:{l:'Expander',up:25,down:6}, valve:{l:'Partially-open valve',up:50,down:7}, pump:{l:'Pump discharge',up:32,down:7}, unknown:{l:'Unknown',up:60,down:8} };
+  instResult(){
+    const i=this.state.inst; const up=this.INST_FITTINGS[i.up]||this.INST_FITTINGS.unknown; const down=this.INST_FITTINGS[i.down]||this.INST_FITTINGS.longStraight;
+    const beta=this.SI('orifice.orificeBoreM')/this.SI('pipe.pipeInsideDiameterM');
+    const betaFactor=0.7+beta*0.9; // larger beta needs more straight run (educational scaling)
+    const reqUp=up.up*betaFactor, reqDown=down.down;
+    const haveUp=parseFloat(i.upLen)||0, haveDown=parseFloat(i.downLen)||0;
+    let score=100; const notes=[];
+    const upDef=Math.max(0,reqUp-haveUp), downDef=Math.max(0,reqDown-haveDown);
+    if(upDef>0){ score-=Math.min(45,upDef*1.6); notes.push({sev:'warning',t:'Upstream straight length short by ~'+upDef.toFixed(0)+'D',a:'Add straight run or a flow conditioner upstream.'}); }
+    if(downDef>0){ score-=Math.min(20,downDef*2.5); notes.push({sev:'warning',t:'Downstream straight length short by ~'+downDef.toFixed(0)+'D',a:'Extend downstream straight pipe.'}); }
+    if(i.straight!=='good'){ score-=8; notes.push({sev:'warning',t:'Pipe straightness not confirmed good',a:'Swirl/asymmetry adds uncertainty.'}); }
+    if(i.circ!=='good'){ score-=8; notes.push({sev:'warning',t:'Pipe circularity not confirmed',a:'Out-of-round pipe affects β and area.'}); }
+    if(i.clean!=='clean'){ score-=10; notes.push({sev:'warning',t:'Pipe internal cleanliness uncertain',a:'Deposits change roughness and edge condition.'}); }
+    if(!i.roughKnown){ score-=5; notes.push({sev:'info',t:'Pipe roughness unknown',a:'Roughness correction may be needed.'}); }
+    if(i.drain){ score-=4; notes.push({sev:'info',t:'Drain/vent near primary device',a:'Avoid disturbances close to taps.'}); }
+    let needCond = upDef>4 || i.up==='dblDiff' || i.up==='valve' || i.up==='pump' || i.up==='unknown';
+    if(i.cond){ score=Math.min(100,score+12); notes.push({sev:'info',t:'Flow conditioner installed ('+i.condType+')',a:'Compliance still depends on conditioner test data.'}); needCond=false; }
+    score=Math.max(0,Math.round(score));
+    notes.push({sev:'info',t:'Straight-length values are educational placeholders',a:'Exact minimums require ISO 5167-2 installation tables.'});
+    return {score,reqUp,reqDown,haveUp,haveDown,notes,needCond,up,down};
+  }
+
+  /* ---------- conditioner ---------- */
+  CONDS={
+    tube:{l:'Tube bundle straightener',K:0.75,swirl:true,profile:false,d:'Cluster of parallel tubes that suppress swirl.'},
+    amca:{l:'AMCA straightener',K:0.6,swirl:true,profile:false,d:'Egg-crate cells removing rotational components.'},
+    etoile:{l:'Étoile (star) straightener',K:0.35,swirl:true,profile:false,d:'Radial vanes — anti-swirl, light pressure loss.'},
+    gallagher:{l:'Gallagher conditioner',K:2.0,swirl:true,profile:true,d:'Anti-swirl device + perforated plate to reshape profile.'},
+    nova:{l:'K-Lab NOVA perforated plate',K:3.2,swirl:true,profile:true,d:'Perforated plate redistributing the velocity profile.'},
+    nel:{l:'NEL / Spearman conditioner',K:2.8,swirl:true,profile:true,d:'Perforated plate developed for fiscal metering.'},
+    sprenkle:{l:'Sprenkle conditioner',K:15,swirl:true,profile:true,d:'Three perforated plates in series — high loss.'},
+    zanker:{l:'Zanker plate',K:5.0,swirl:true,profile:true,d:'Perforated plate with honeycomb — strong conditioning.'},
+  };
+  condResult(){
+    const c=this.CONDS[this.state.condSel]; const r=this.compute(); const V=r.Vpipe;
+    const dPc=c.K*r.rho*V*V/2; return {c,V,dPc,dPcKpa:dPc/1000,key:this.state.condSel};
+  }
+
+  /* ---------- charts ---------- */
+  lineChart(opts){
+    const {series,xlabel,ylabel,w=560,h=300,mark}=opts;
+    const m={l:58,r:18,t:14,b:40}, iw=w-m.l-m.r, ih=h-m.t-m.b;
+    let xs=[],ys=[]; series.forEach(s=>s.pts.forEach(p=>{xs.push(p[0]);ys.push(p[1]);}));
+    if(mark){xs.push(mark[0]);ys.push(mark[1]);}
+    let xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys,0),ymax=Math.max(...ys);
+    if(!isFinite(xmin)){xmin=0;xmax=1;} if(!isFinite(ymin)){ymin=0;ymax=1;}
+    if(xmax===xmin)xmax=xmin+1; if(ymax===ymin)ymax=ymin+1; ymax+= (ymax-ymin)*0.08;
+    const sx=x=>m.l+(x-xmin)/(xmax-xmin)*iw, sy=y=>m.t+ih-(y-ymin)/(ymax-ymin)*ih;
+    const nodes=[];
+    for(let i=0;i<=4;i++){ const gy=m.t+ih*i/4; const yv=ymax-(ymax-ymin)*i/4;
+      nodes.push(e('line',{key:'g'+i,x1:m.l,x2:m.l+iw,y1:gy,y2:gy,stroke:'var(--grid)','stroke-width':1}));
+      nodes.push(e('text',{key:'gt'+i,x:m.l-7,y:gy+3.5,'text-anchor':'end',fill:'var(--faint)',style:{font:"500 9px Consolas,'Lucida Console',monospace"}},this.eng(yv)));
+    }
+    for(let i=0;i<=4;i++){ const gx=m.l+iw*i/4; const xv=xmin+(xmax-xmin)*i/4;
+      nodes.push(e('text',{key:'xt'+i,x:gx,y:h-m.b+16,'text-anchor':'middle',fill:'var(--faint)',style:{font:"500 9px Consolas,'Lucida Console',monospace"}},this.eng(xv)));
+    }
+    series.forEach((s,si)=>{ const dpath=s.pts.map((p,idx)=>(idx?'L':'M')+sx(p[0]).toFixed(1)+' '+sy(p[1]).toFixed(1)).join(' ');
+      nodes.push(e('path',{key:'p'+si,d:dpath,fill:'none',stroke:s.color||'var(--accent)','stroke-width':2.2,'stroke-linejoin':'round'})); });
+    if(mark&&isFinite(mark[0])&&isFinite(mark[1])){ nodes.push(e('circle',{key:'mk',cx:sx(mark[0]),cy:sy(mark[1]),r:4.5,fill:'var(--amber)',stroke:'var(--bg)','stroke-width':2})); }
+    nodes.push(e('line',{key:'ax',x1:m.l,x2:m.l,y1:m.t,y2:m.t+ih,stroke:'var(--border)','stroke-width':1}));
+    nodes.push(e('line',{key:'ay',x1:m.l,x2:m.l+iw,y1:m.t+ih,y2:m.t+ih,stroke:'var(--border)','stroke-width':1}));
+    nodes.push(e('text',{key:'xl',x:m.l+iw/2,y:h-3,'text-anchor':'middle',fill:'var(--muted)',style:{font:"500 10px 'Segoe UI',Tahoma,sans-serif"}},xlabel));
+    nodes.push(e('text',{key:'yl',x:14,y:m.t+ih/2,'text-anchor':'middle',fill:'var(--muted)',transform:'rotate(-90 14 '+(m.t+ih/2)+')',style:{font:"500 10px 'Segoe UI',Tahoma,sans-serif"}},ylabel));
+    return e('svg',{viewBox:'0 0 '+w+' '+h,style:{width:'100%',height:'auto',display:'block'}},nodes);
+  }
+
+  /* ---------- tapping diagram ---------- */
+  tappingSvg(r){
+    const w=640,h=300, cy=150, pipeH=110, plateX=330;
+    const D=r.D, beta=r.beta, boreH=Math.max(8,pipeH*beta);
+    const type=this.state.tapping;
+    const Dpx=pipeH; // 1D in px = pipeH (approx visual)
+    let up, down, upLbl, downLbl;
+    if(type==='corner'){ up=plateX-9; down=plateX+9; upLbl='corner'; downLbl='corner'; }
+    else if(type==='flange'){ const off=Math.min(40,Dpx*0.254); up=plateX-off; down=plateX+off; upLbl='25.4 mm'; downLbl='25.4 mm'; }
+    else { up=plateX-Dpx; down=plateX+Dpx*0.5; upLbl='1·D'; downLbl='0.5·D'; }
+    const top=cy-pipeH/2, bot=cy+pipeH/2;
+    const arrows=[]; for(let i=0;i<5;i++){ const ax=60+i*44; arrows.push(e('line',{key:'a'+i,x1:ax,y1:cy,x2:ax+26,y2:cy,stroke:'var(--accent)','stroke-width':2.2,'stroke-dasharray':'6 8','stroke-linecap':'round',style:{animation:'flowdash 1.1s linear infinite'}})); }
+    const tap=(x,y,lbl,p)=>[
+      e('line',{key:'tl'+p,x1:x,y1:top-46,x2:x,y2:y,stroke:'var(--amber)','stroke-width':2.4,style:{transition:'all .4s cubic-bezier(.4,0,.2,1)'}}),
+      e('circle',{key:'tc'+p,cx:x,cy:top-46,r:6,fill:'var(--panel)',stroke:'var(--amber)','stroke-width':2.4,style:{transition:'all .4s cubic-bezier(.4,0,.2,1)'}}),
+      e('text',{key:'tt'+p,x:x,y:top-56,'text-anchor':'middle',fill:'var(--fg)',style:{font:"600 12px Consolas,'Lucida Console',monospace"}},p),
+      e('text',{key:'td'+p,x:x,y:top-70,'text-anchor':'middle',fill:'var(--faint)',style:{font:"500 9px Consolas,'Lucida Console',monospace"}},lbl),
+    ];
+    return e('svg',{viewBox:'0 0 '+w+' '+h,style:{width:'100%',height:'auto',display:'block'}},[
+      e('rect',{key:'pipe',x:30,y:top,width:w-60,height:pipeH,fill:'var(--panel2)',stroke:'var(--border)','stroke-width':1.5,rx:3}),
+      ...arrows,
+      // plate
+      e('rect',{key:'pu',x:plateX-6,y:top-2,width:12,height:(pipeH-boreH)/2+2,fill:'var(--fg)',opacity:.85}),
+      e('rect',{key:'pd',x:plateX-6,y:cy+boreH/2,width:12,height:(pipeH-boreH)/2+2,fill:'var(--fg)',opacity:.85}),
+      e('line',{key:'cl',x1:30,y1:cy,x2:w-30,y2:cy,stroke:'var(--faint)','stroke-width':.8,'stroke-dasharray':'3 5'}),
+      ...tap(up,top,upLbl,'p₁'),
+      ...tap(down,top,downLbl,'p₂'),
+      // dims
+      e('line',{key:'dD1',x1:w-46,y1:top,x2:w-46,y2:bot,stroke:'var(--blue)','stroke-width':1.4}),
+      e('text',{key:'dDt',x:w-40,y:cy+3,fill:'var(--blue)',style:{font:"600 11px Consolas,'Lucida Console',monospace"}},'D'),
+      e('text',{key:'dbt',x:plateX+16,y:cy+4,fill:'var(--green)',style:{font:"600 11px Consolas,'Lucida Console',monospace"}},'β='+beta.toFixed(3)),
+    ]);
+  }
+
+  /* ---------- field row renderer ---------- */
+  buildFields(keys){
+    return keys.map(f=>{
+      const m=this.FMETA[f]; const hasUnit=m.uk && this.UNITS[m.cat] && this.UNITS[m.cat].length>1;
+      return { key:f, field:f, label:m.label, value:this.state.vals[f], step:m.step, help:m.help||'',
+        hasUnit, unitKey:m.uk||'', unitValue:hasUnit?this.state.units[m.uk]:'', unitOptions:hasUnit?this.UNITS[m.cat]:[] };
+    });
+  }
+  helpDot(text){ return text?e('span',{key:'?',title:text,style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:'14px',height:'14px',flex:'none',borderRadius:'50%',border:'1px solid var(--border)',background:'var(--panel2)',color:'var(--faint)',font:"700 9px 'Segoe UI',sans-serif",cursor:'help'}},'?'):null; }
+  fieldRowEl(f){
+    return e('label',{key:f.key,style:{display:'flex',flexDirection:'column',gap:'5px'}},[
+      e('span',{key:'l',style:{display:'flex',alignItems:'center',gap:'6px',font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--muted)',letterSpacing:'.03em',textTransform:'uppercase'}},[e('span',{key:'t'},f.label),this.helpDot(f.help)]),
+      e('div',{key:'r',style:{display:'flex',gap:'6px'}},[
+        e('input',{key:'i',type:'number',step:f.step,value:f.value,'data-field':f.field,onInput:this.onFieldInput,style:{flex:'1',minWidth:'0',background:'var(--panel2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--fg)',font:"500 12.5px Consolas,'Lucida Console',monospace",padding:'8px 9px'}}),
+        f.hasUnit?e('select',{key:'u','data-unitkey':f.unitKey,value:f.unitValue,onChange:this.onUnitChange,style:{flex:'none',width:'74px',background:'var(--elev)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--muted)',font:"500 11px Consolas,'Lucida Console',monospace",padding:'8px 4px'}}, f.unitOptions.map(u=>e('option',{key:u,value:u},u))):null
+      ])
+    ]);
+  }
+
+  /* Coefficient panel: Manual (edit C/ε) or ISO 5167-2 auto (computed C/ε shown). */
+  coefPanel(r){
+    const iso=this.state.coefModel==='iso';
+    const head=e('div',{key:'h',style:{display:'flex',flexDirection:'column',gap:'6px'}},[
+      e('span',{key:'l',style:{display:'flex',alignItems:'center',gap:'6px',font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--muted)',letterSpacing:'.03em',textTransform:'uppercase'}},[e('span',{key:'t'},'Coefficient model'),this.helpDot('Manual: you type C and ε. ISO 5167-2 (auto): C is computed from β, Re_D and tapping via the Reader–Harris/Gallagher equation; ε from the ISO expansibility equation for gases.')]),
+      this.seg(this.state.coefModel,[{v:'manual',l:'Manual'},{v:'iso',l:'ISO 5167-2 (auto)'}],this.onCoefModel)
+    ]);
+    if(!iso) return [head, ...this.buildFields(['coef.C','coef.eps']).map(f=>this.fieldRowEl(f))];
+    const disp=(lbl,val,help)=>e('div',{key:lbl,style:{flex:'1',background:'var(--panel2)',border:'1px solid var(--accent)',borderRadius:'7px',padding:'8px 9px',display:'flex',flexDirection:'column',gap:'3px'}},[
+      e('div',{key:'l',style:{display:'flex',alignItems:'center',gap:'5px',font:"500 9px Consolas,'Lucida Console',monospace",color:'var(--faint)',letterSpacing:'.03em',textTransform:'uppercase'}},[e('span',{key:'t'},lbl),this.helpDot(help)]),
+      e('div',{key:'v',style:{font:"600 16px Consolas,'Lucida Console',monospace",color:'var(--accent)'}},val)
+    ]);
+    const kids=[head,
+      e('div',{key:'disp',style:{display:'flex',gap:'8px'}},[disp('Discharge C',isFinite(r.C)?r.C.toFixed(4):'—',this.FMETA['coef.C'].help),disp('Expansibility ε',isFinite(r.eps)?r.eps.toFixed(4):'—',this.FMETA['coef.eps'].help)]),
+      e('label',{key:'comp',style:{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer',font:"500 11px 'Segoe UI',Tahoma,sans-serif",color:'var(--fg)'}},[e('input',{key:'c',type:'checkbox',checked:this.state.compressible,onChange:this.onToggleCompressible,style:{width:'15px',height:'15px',accentColor:'var(--accent)'}}),'Compressible fluid (gas / steam) → apply ε'])
+    ];
+    if(this.state.compressible) kids.push(...this.buildFields(['coef.kappa']).map(f=>this.fieldRowEl(f)));
+    kids.push(e('div',{key:'note',style:{font:"400 10px/1.45 'Segoe UI',Tahoma,sans-serif",color:'var(--faint)'}},'C via Reader–Harris/Gallagher (2000), iterated with Re_D. Educational implementation — verify against ISO 5167-2.'));
+    return kids;
+  }
+
+  /* ---------- icons ---------- */
+  ic(name,size){ const paths={
+    dashboard:'M3 13h7V4H3zM14 20h7V4h-7zM3 20h7v-5H3z', calculator:'M7 3h10v18H7zM9.5 7h5M9.5 11h2M13 11h1.5M9.5 14.5h2M13 14.5h1.5',
+    tapping:'M3 12h18M8 12V6M16 12v6', installation:'M4 8h16M7 8V5M17 8V5M4 8v11h16V8', simulation:'M4 4v16h16M7 15l3-4 3 2 4-7',
+    uncertainty:'M5 16L19 6M6 7h.01M18 17h.01M9 18h6', conditioner:'M6 5v14M10 5v14M14 5v14M18 5v14',
+    fluids:'M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z', report:'M7 3h8l3 3v15H7zM10 12h6M10 16h6',
+    reference:'M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM9 8h7', settings:'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M3 12h3M18 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2',
+    info:'M12 8h.01M11 12h1v4h1', }[name];
+    return e('svg',{viewBox:'0 0 24 24',width:size||16,height:size||16,fill:'none',stroke:'currentColor','stroke-width':1.7,'stroke-linecap':'round','stroke-linejoin':'round'},e('path',{d:paths}));
+  }
+
+  /* ---------- render ---------- */
+  renderVals(){
+    const r=this.compute();
+    const s=this.state;
+    const compMap={ VALID:['Valid','var(--green)'], VALID_WITH_WARNING:['Valid · warnings','var(--amber)'], OUT_OF_RANGE:['Out of range','var(--red)'], EDUCATIONAL_ESTIMATE:['Educational estimate','var(--blue)'], NOT_FULL_ISO_5167_2_COMPLIANT:['Not ISO-2 compliant','var(--blue)'] };
+    const [compLabel,compColor]=compMap[r.status];
+    const compDesc={ OUT_OF_RANGE:'One or more inputs violate basic physical limits. Fix the flagged errors before trusting the result.', VALID_WITH_WARNING:'Result computed, but some parameters sit outside the typical validity band. Review the warnings.', EDUCATIONAL_ESTIMATE:'Computed with a manual / default discharge coefficient. Treat as a preliminary estimate, not a compliant ISO 5167-2 calculation.' }[r.status];
+
+    // nav (grouped for engineering workflow)
+    const groups=[ ['Overview',[['dashboard','Dashboard']]], ['Calculate',[['calculator','Orifice Calculator'],['tapping','Tapping & Flow Sim'],['installation','Installation Checker'],['conditioner','Conditioner Advisor']]], ['Analyze',[['simulation','Sensitivity Charts'],['uncertainty','Uncertainty Lab']]], ['Data',[['fluids','Fluids & Steam Tables'],['reference','Reference Notes']]], ['Output',[['report','Report / Export'],['settings','Settings']]] ];
+    const pages=[]; const navItems=[];
+    groups.forEach(([g,items])=>{
+      navItems.push({isHeader:true,isBtn:false,id:'hdr'+g,label:g.toUpperCase(),icon:null,icColor:'',dot:false,style:''});
+      items.forEach(([id,label])=>{ pages.push([id,label]); const active=s.page===id;
+        navItems.push({isHeader:false,isBtn:true,id,label,icon:this.ic(id),icColor:active?'var(--accent)':'var(--faint)',dot:active,
+          style:`display:flex;align-items:center;gap:11px;width:100%;text-align:left;cursor:pointer;border:none;border-radius:9px;padding:9px 11px;font:${active?600:500} 12.5px/1 'Segoe UI',Tahoma,sans-serif;color:${active?'var(--fg)':'var(--muted)'};background:${active?'var(--elev)':'transparent'};${active?'box-shadow:inset 0 0 0 1px var(--border);':''}` });
+      });
+    });
+
+    const pageTitle=(pages.find(p=>p[0]===s.page)||['','Dashboard'])[1];
+
+    // status badges
+    const modeLbl={solve_flow_from_dp:'Q ← ΔP',solve_dp_from_flow:'ΔP ← Q',solve_bore_from_flow:'d ← Q',solve_beta_from_flow:'β ← Q',solve_dp_from_volflow:'ΔP ← Qv',solve_flow_at_span:'Q @ URL'}[s.mode];
+    const bstyle='display:flex;flex-direction:column;gap:3px;padding:6px 11px;border-radius:9px;background:var(--panel2);border:1px solid var(--border)';
+    const statusBadges=[
+      {label:'Mode',value:modeLbl,color:'var(--fg)',style:bstyle},
+      {label:'Fluid',value:s.fluidLabel,color:'var(--fg)',style:bstyle},
+      {label:'Compliance',value:compLabel,color:compColor,style:bstyle},
+      {label:'Scenario',value:s.scenarioName,color:'var(--muted)',style:bstyle},
+    ];
+
+    // KPIs
+    const kpis=[
+      {label:'Mass flow',value:this.eng(r.qm),unit:'kg/s',color:'var(--accent)'},
+      {label:'Volume flow',value:this.eng(r.qv*3600),unit:'m³/h',color:'var(--accent)'},
+      {label:'Pipe Reynolds',value:this.eng(r.ReD),unit:'Re_D',color:r.ReD<5000?'var(--amber)':'var(--green)'},
+      {label:'Beta ratio',value:r.beta.toFixed(3),unit:'β',color:(r.beta<0.1||r.beta>0.75)?'var(--amber)':'var(--green)'},
+    ];
+    const dashCards=[
+      {id:'calculator',title:'Orifice ISO 5167 Calculator',desc:'Solve Q from ΔP — or reverse-solve ΔP, bore, or β from a target flow.',icon:this.ic('calculator',18)},
+      {id:'tapping',title:'Tapping & Flow Simulator',desc:'Adjustable tap positions with a live laminar / turbulent flow animation.',icon:this.ic('tapping',18)},
+      {id:'fluids',title:'Fluids & Steam Tables',desc:'Industrial fluid database and saturated steam table — load into the calculator.',icon:this.ic('fluids',18)},
+      {id:'installation',title:'Installation Checker',desc:'Score straight-run, fittings, swirl and flow-conditioner need.',icon:this.ic('installation',18)},
+      {id:'simulation',title:'Sensitivity Charts',desc:'Live ΔP–Q, β, density and Reynolds sensitivity charts.',icon:this.ic('simulation',18)},
+      {id:'uncertainty',title:'Uncertainty Lab',desc:'RSS combined uncertainty with per-source contribution breakdown.',icon:this.ic('uncertainty',18)},
+      {id:'report',title:'Report Generator',desc:'Export the calculation as JSON, CSV or a printable report.',icon:this.ic('report',18)},
+    ];
+
+    // result cards
+    const card=(label,value,unit,accent,sub)=>({label,value,unit,sub:sub||'',color:accent?'var(--amber)':'var(--fg)',style:`background:var(--panel);border:1px solid ${accent?'var(--amber)':'var(--border)'};border-radius:12px;padding:13px 14px;${accent?'box-shadow:0 0 0 1px var(--amber) inset;':''}`});
+    const sk=r.solvedKey;
+    const resultCards=[
+      card('Mass flow',this.eng(r.qm),this.state.units.Fm==='kg/h'?'kg/h':'kg/s',sk==='qm', this.eng(r.qm*3600)+' kg/h'),
+      card('Volume flow',this.eng(r.qv*3600),'m³/h',sk==='qm', this.eng(r.qv*60000)+' L/min'),
+      card('Differential ΔP',this.eng(this.fromSI(r.dP,'pressure','kPa')),'kPa',sk==='dP', this.eng(this.fromSI(r.dP,'pressure','bar'))+' bar'),
+      card('Orifice bore d',this.eng(this.fromSI(r.d,'length','mm')),'mm',sk==='d', 'β = '+r.beta.toFixed(4)),
+      card('Beta ratio',r.beta.toFixed(4),'β',sk==='beta'),
+      card('Pipe velocity',this.eng(r.Vpipe),'m/s',false),
+      card('Orifice velocity',this.eng(r.Vorifice),'m/s',false),
+      card('Re_D',this.eng(r.ReD),'pipe',false,'Re_d '+this.eng(r.Red)),
+      card('Discharge C',r.C.toFixed(4),'—',false),
+      card('Expansibility ε',r.eps.toFixed(4),'—',false),
+      card('Perm. press. loss',this.eng((1-Math.pow(r.beta,1.9))*r.dP/1000),'kPa',false,'≈ (1−β^1.9)·ΔP'),
+    ];
+
+    // iteration table
+    const colMap={ qm:['#','ΔP (Pa)','qm (kg/s)','—'], dP:['#','ΔP (Pa)','qm (kg/s)','—'], d:['#','d (mm)','qm (kg/s)','|err|'], beta:['#','β','qm (kg/s)','|err|'] };
+    const iterCols=colMap[sk]||['#','x','y','err'];
+    const iterRows=r.iterations.slice(0,16).map((it,idx)=>{ let x=it.x; if(sk==='d') x=this.fromSI(it.x,'length','mm'); return {style:`background:${idx%2?'transparent':'var(--grid)'}`, cells:[String(it.iteration), this.eng(x), this.eng(it.y), sk==='d'||sk==='beta'?this.eng(it.error):'—'] }; });
+    const iterSummary=(sk==='d'||sk==='beta')?(r.iterations.length+' steps · bisection'):'direct (analytic)';
+
+    // calc chart: dP vs Q
+    const ptsDpQ=[]; for(let i=1;i<=40;i++){ const dp=(r.dP*1.8)*i/40; const q=this.qmFromDpD(dp,r.d,{D:r.D,rho:r.rho,C:r.C,eps:r.eps}); if(isFinite(q)) ptsDpQ.push([this.fromSI(dp,'pressure','kPa'),q]); }
+    const calcChart=this.lineChart({series:[{pts:ptsDpQ,color:'var(--accent)'}],xlabel:'ΔP (kPa)',ylabel:'qm (kg/s)',mark:[this.fromSI(r.dP,'pressure','kPa'),r.qm],h:260});
+
+    const warnings=r.warns.map(w=>({...w,color:w.severity==='error'?'var(--red)':w.severity==='warning'?'var(--amber)':'var(--blue)'}));
+
+    // hero (solved value) + persistent footer stats
+    const reg=this.regimeOf(r.ReD);
+    const heroMap={ solve_flow_from_dp:['Mass flow — solved',this.eng(r.qm),'kg/s'], solve_dp_from_flow:['Differential pressure — solved',this.eng(r.dP/1000),'kPa'], solve_bore_from_flow:['Orifice bore — solved',this.eng(this.fromSI(r.d,'length','mm')),'mm'], solve_beta_from_flow:['Beta ratio — solved',isFinite(r.beta)?r.beta.toFixed(4):'—','β'], solve_dp_from_volflow:['Differential pressure — solved',this.eng(r.dP/1000),'kPa'], solve_flow_at_span:['Mass flow at transmitter span',this.eng(r.qm),'kg/s'] };
+    const [heroLabel,heroValue,heroUnit]=heroMap[s.mode];
+    const heroSub1='qv '+this.eng(r.qv*3600)+' m³/h  ·  Re_D '+this.eng(r.ReD);
+    const heroSub2=reg.l+'  ·  V '+this.eng(r.Vpipe)+' m/s  ·  β '+(isFinite(r.beta)?r.beta.toFixed(3):'—');
+    const footStats=[
+      {label:'qm',value:this.eng(r.qm)+' kg/s',color:'var(--fg)'},
+      {label:'qv',value:this.eng(r.qv*3600)+' m³/h',color:'var(--fg)'},
+      {label:'ΔP',value:this.eng(r.dP/1000)+' kPa',color:'var(--fg)'},
+      {label:'Re_D',value:this.eng(r.ReD),color:'var(--fg)'},
+      {label:'Regime',value:reg.l,color:reg.c},
+      {label:'β',value:isFinite(r.beta)?r.beta.toFixed(3):'—',color:'var(--fg)'},
+      {label:'V',value:this.eng(r.Vpipe)+' m/s',color:'var(--fg)'},
+    ];
+    const coefAssume = r.coefSource==='iso'
+      ? 'Discharge C from the Reader–Harris/Gallagher (ISO 5167-2) equation; ε '+(this.state.compressible?'from the ISO expansibility equation':'= 1 (incompressible)')+'.'
+      : 'Discharge coefficient C and expansibility ε supplied manually (educational).';
+    const assumptions=['Single-phase fluid, pipe running full at the measurement section.','Subsonic, non-pulsating flow.',coefAssume,'Thermal expansion of pipe/plate not applied unless entered.'];
+
+    return {
+      theme:s.theme, themeIcon:s.theme==='dark'?'☀':'☾',
+      onNavClick:this.onNavClick, onToggleTheme:this.onToggleTheme, onFieldInput:this.onFieldInput, onUnitChange:this.onUnitChange,
+      navItems, pageTitle, statusBadges, infoIcon:this.ic('info',16),
+      isDashboard:s.page==='dashboard', isCalc:s.page==='calculator',
+      kpis, dashCards,
+      mode:s.mode, tapping:s.tapping, fluidPreset:s.fluidPreset, presetOptions:Object.keys(this.PRESETS),
+      showTarget:['solve_dp_from_flow','solve_bore_from_flow','solve_beta_from_flow','solve_dp_from_volflow'].includes(s.mode), targetFields:this.buildFields([s.mode==='solve_dp_from_volflow'?'target.volFlow':'target.massFlow']).map(f=>this.fieldRowEl(f)),
+      fluidFields:this.buildFields(['fluid.densityKgM3','fluid.dynamicViscosityPaS','fluid.temperatureC','fluid.pressureAbsPa']).map(f=>this.fieldRowEl(f)),
+      pipeFields:this.buildFields(['pipe.pipeInsideDiameterM','pipe.pipeRoughnessM']).map(f=>this.fieldRowEl(f)),
+      orificeFields:this.buildFields(['orifice.orificeBoreM','orifice.beta']).map(f=>this.fieldRowEl(f)),
+      measFields:this.buildFields(['meas.differentialPressurePa','meas.staticPressurePa','meas.dpRangePa']).map(f=>this.fieldRowEl(f)),
+      coefFields:this.coefPanel(r),
+      fieldRow:null,
+      resultCards, iterCols, iterRows, iterSummary, calcChart,
+      heroLabel, heroValue, heroUnit, heroSub1, heroSub2, footStats,
+      assumptions, warnings, warnCount:warnings.length, noWarnings:warnings.length===0,
+      compLabel, compColor, compDesc, compBoxStyle:`background:var(--panel);border:1px solid var(--border);border-left:3px solid ${compColor};border-radius:13px;padding:15px`,
+      btnPrimary:"cursor:pointer;border:none;border-radius:9px;padding:10px 16px;font:600 12.5px 'Segoe UI',Tahoma,sans-serif;background:var(--accent);color:#04121a",
+      btnGhost:"cursor:pointer;border:1px solid var(--border);border-radius:9px;padding:10px 16px;font:600 12.5px 'Segoe UI',Tahoma,sans-serif;background:var(--panel2);color:var(--fg)",
+      onSaveScenario:this.onSaveScenario, onGoReport:this.onGoReport,
+      showMath:s.showMath, onToggleMath:this.onToggleMath, mathToggleLabel:s.showMath?'Hide working':'Show working', mathPanel:s.showMath?this.mathBreakdown(r):null,
+      examplesRow:this.examplesRow(),
+      onStartTour:this.startTour, tourOverlay:this.renderTour(),
+      toolMode:modeLbl,
+      extraPages:this.renderExtraPages(r),
+    };
+  }
+
+  /* ===== shared UI helpers ===== */
+  inStyle(){ return {background:'var(--panel2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--fg)',font:"500 12.5px Consolas,'Lucida Console',monospace",padding:'8px 9px',width:'100%'}; }
+  selStyle(){ return {background:'var(--panel2)',border:'1px solid var(--border)',borderRadius:'7px',color:'var(--fg)',font:"500 12.5px 'Segoe UI',Tahoma,sans-serif",padding:'8px 9px',width:'100%',cursor:'pointer'}; }
+  P(title,children,extra){ return e('div',{style:Object.assign({background:'var(--panel)',border:'1px solid var(--border)',borderRadius:'13px',padding:'16px'},extra||{})},[ title?e('div',{key:'t',style:{font:"600 11px Consolas,'Lucida Console',monospace",color:'var(--accent)',letterSpacing:'.06em',textTransform:'uppercase',marginBottom:'13px'}},title):null, e('div',{key:'b'},children) ]); }
+  H(t,sub){ return e('div',{key:'h',style:{marginBottom:'18px'}},[ e('h1',{key:'a',style:{margin:0,font:"700 23px 'Segoe UI',Tahoma,sans-serif",letterSpacing:'-.02em'}},t), sub?e('p',{key:'s',style:{margin:'7px 0 0',font:"400 13px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',maxWidth:'660px',lineHeight:1.5}},sub):null ]); }
+  wrap(children){ return e('div',{style:{maxWidth:'1180px'}},children); }
+  seg(cur,opts,onClick){ return e('div',{style:{display:'flex',gap:'6px',flexWrap:'wrap'}}, opts.map(o=>e('button',{key:o.v,'data-val':o.v,onClick,style:{cursor:'pointer',border:'1px solid '+(cur===o.v?'var(--accent)':'var(--border)'),background:cur===o.v?'var(--elev)':'var(--panel2)',color:cur===o.v?'var(--accent)':'var(--muted)',borderRadius:'8px',padding:'8px 12px',font:"600 12px 'Segoe UI',Tahoma,sans-serif"}},o.l))); }
+  lab(label,control){ return e('label',{style:{display:'flex',flexDirection:'column',gap:'5px'}},[ e('span',{key:'l',style:{font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--muted)',letterSpacing:'.03em',textTransform:'uppercase'}},label), control ]); }
+  selEl(val,opts,attrs,onChange){ return e('select',Object.assign({value:val,onChange,style:this.selStyle()},attrs||{}), opts.map(o=>e('option',{key:o.v,value:o.v},o.l))); }
+  chk(label,checked,k,onChange){ return e('label',{style:{display:'flex',alignItems:'center',gap:'9px',cursor:'pointer',font:"500 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--fg)'}},[ e('input',{key:'c',type:'checkbox',checked,'data-k':k,onChange,style:{width:'16px',height:'16px',accentColor:'var(--accent)'}}), label ]); }
+  metric(label,value,unit,color){ return e('div',{style:{background:'var(--panel2)',border:'1px solid var(--border)',borderRadius:'10px',padding:'12px 13px'}},[ e('div',{key:'l',style:{font:"500 9.5px Consolas,'Lucida Console',monospace",color:'var(--faint)',letterSpacing:'.05em',textTransform:'uppercase'}},label), e('div',{key:'v',style:{marginTop:'7px'}},[ e('span',{key:'a',style:{font:"600 19px Consolas,'Lucida Console',monospace",color:color||'var(--fg)'}},value), unit?e('span',{key:'u',style:{font:"500 10px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',marginLeft:'4px'}},unit):null ]) ]); }
+  btn(label,onClick,primary){ return e('button',{onClick,style:{cursor:'pointer',border:primary?'none':'1px solid var(--border)',borderRadius:'9px',padding:'10px 16px',font:"600 12.5px 'Segoe UI',Tahoma,sans-serif",background:primary?'var(--accent)':'var(--panel2)',color:primary?'#04121a':'var(--fg)'}},label); }
+
+  /* ===== handlers for extra pages ===== */
+  onSetTapping = (ev)=>{ const v=ev.currentTarget.dataset.val; const D=this.SI('pipe.pipeInsideDiameterM')||0.1; const map={corner:[0.03,0.03],flange:[0.0254/D,0.0254/D],d_d2:[1,0.5]}; const st={tapping:v}; if(map[v]){ st.tapUpD=String(Math.round(map[v][0]*100)/100); st.tapDownD=String(Math.round(map[v][1]*100)/100); } this.setState(st); };
+  onTapD = (ev)=> this.setState({tapping:'custom',[ev.target.dataset.k]:ev.target.value});
+  onFluidTab = (ev)=> this.setState({fluidTab:ev.currentTarget.dataset.val});
+  onFluidQ = (ev)=> this.setState({fluidQ:ev.target.value});
+  onSimRegime = (ev)=> this.setState({simRegime:ev.currentTarget.dataset.val});
+  onSimFluid = (ev)=>{ const f=this.FLUIDS.find(x=>x.n===ev.target.value); if(!f) return; const vals={...this.state.vals}; const units={...this.state.units}; units.rho='kg/m³'; units.mu='cP'; units.temp='°C'; vals['fluid.densityKgM3']=String(f.rho); vals['fluid.dynamicViscosityPaS']=String(f.mu); vals['fluid.temperatureC']=String(f.T); this.setState({vals,units,fluidPreset:'Custom',fluidLabel:f.n}); };
+  onGeoSlider = (ev)=>{ const k=ev.target.dataset.k; const v=parseFloat(ev.target.value); if(!isFinite(v)) return;
+    const vals={...this.state.vals}; const units=this.state.units;
+    if(k==='D'){ const Dm=v/1000; const b=parseFloat(vals['orifice.beta'])||0.6; vals['pipe.pipeInsideDiameterM']=this.fmt(this.fromSI(Dm,'length',units.D),5); vals['orifice.orificeBoreM']=this.fmt(this.fromSI(b*Dm,'length',units.d),5); }
+    else if(k==='beta'){ const Dm=this.siFrom(vals,'pipe.pipeInsideDiameterM'); vals['orifice.beta']=this.fmt(v,4); vals['orifice.orificeBoreM']=this.fmt(this.fromSI(v*Dm,'length',units.d),5); }
+    else if(k==='dP'){ const pa=Math.pow(10,v); vals['meas.differentialPressurePa']=this.fmt(this.fromSI(pa,'pressure',units.DP),5); }
+    this.setState({vals});
+  };
+  onUncMode = (ev)=> this.setState(s=>({unc:{...s.unc,mode:ev.currentTarget.dataset.val}}));
+  applyPresetGo(name){ this.applyPreset(name); this.setState({page:'calculator'}); }
+  exportScenarios = ()=> this.download('iso5167-scenarios.json',JSON.stringify(this.state.scenarios,null,2),'application/json');
+  importScenarios = (ev)=>{ const f=ev.target.files[0]; if(!f) return; const rd=new FileReader(); rd.onload=()=>{ try{ const arr=JSON.parse(rd.result); if(Array.isArray(arr)){ this.persist(arr); this.setState({scenarios:arr}); } }catch(_){ alert('Invalid scenario file.'); } }; rd.readAsText(f); };
+
+  /* ===== conditioner schematic ===== */
+  condSchematic(c){ const w=300,h=120,top=20,ph=80,cx=150; const nodes=[ e('rect',{key:'p',x:10,y:top,width:w-20,height:ph,fill:'var(--panel2)',stroke:'var(--border)','stroke-width':1.5,rx:3}) ];
+    for(let i=0;i<5;i++) nodes.push(e('line',{key:'fa'+i,x1:24+i*22,y1:top+ph/2,x2:38+i*22,y2:top+ph/2,stroke:'var(--accent)','stroke-width':1.8,'stroke-dasharray':'5 7','stroke-linecap':'round',style:{animation:'flowdash 1.1s linear infinite'}}));
+    if(c.profile){ nodes.push(e('rect',{key:'pl',x:cx-7,y:top,width:14,height:ph,fill:'var(--fg)',opacity:.85}));
+      for(let r=0;r<4;r++)for(let col=0;col<2;col++) nodes.push(e('circle',{key:'ho'+r+col,cx:cx-3+col*6,cy:top+14+r*18,r:2.4,fill:'var(--panel2)'})); }
+    else { for(let i=0;i<6;i++) nodes.push(e('line',{key:'b'+i,x1:cx-12+i*5,y1:top+6,x2:cx-12+i*5,y2:top+ph-6,stroke:'var(--fg)','stroke-width':2,opacity:.8})); }
+    return e('svg',{viewBox:'0 0 '+w+' '+h,style:{width:'100%',maxWidth:'320px',height:'auto'}},nodes);
+  }
+
+  buildReport(r){
+    const u=this.state.units; const f2=(x,d)=>this.eng(x);
+    return {
+      meta:{ title:'Rekalibrasi ISO 5167 Lab — Orifice calculation', generated:new Date().toLocaleString(), mode:this.state.mode, scenario:this.state.scenarioName, compliance:r.status, disclaimer:'Educational / preliminary estimate. Not a substitute for ISO 5167, certified flow software, or qualified engineering review.' },
+      fluid:{ preset:this.state.fluidPreset, density:this.state.vals['fluid.densityKgM3']+' '+u.rho, viscosity:this.state.vals['fluid.dynamicViscosityPaS']+' '+u.mu, temperature:this.state.vals['fluid.temperatureC']+' '+u.temp, pressure:this.state.vals['fluid.pressureAbsPa']+' '+u.P },
+      geometry:{ pipeID:this.state.vals['pipe.pipeInsideDiameterM']+' '+u.D, bore:this.state.vals['orifice.orificeBoreM']+' '+u.d, beta:r.beta.toFixed(4), tapping:this.state.tapping+(this.state.tapping==='custom'?' (up '+this.state.tapUpD+'·D, down '+this.state.tapDownD+'·D)':''), roughness:this.state.vals['pipe.pipeRoughnessM']+' mm' },
+      coefficients:{ dischargeC:r.C.toFixed(4), expansibility:r.eps.toFixed(4) },
+      results:{ massFlow_kg_s:f2(r.qm), volumeFlow_m3_h:f2(r.qv*3600), differentialPressure_kPa:f2(r.dP/1000), pipeVelocity_m_s:f2(r.Vpipe), orificeVelocity_m_s:f2(r.Vorifice), Re_D:f2(r.ReD), Re_d:f2(r.Red), permanentLoss_kPa:f2((1-Math.pow(r.beta,1.9))*r.dP/1000) },
+      warnings:r.warns.map(w=>w.severity.toUpperCase()+': '+w.msg),
+    };
+  }
+
+  /* ===== fluid & steam database (nominal reference values) ===== */
+  FLUIDS=[
+    {n:'Water 20°C',cat:'liquid',rho:998.2,mu:1.002,T:20,note:'Utility / cooling'},
+    {n:'Water 60°C',cat:'liquid',rho:983.2,mu:0.467,T:60,note:'Hot water loops'},
+    {n:'Water 90°C',cat:'liquid',rho:965.3,mu:0.315,T:90,note:'Boiler feed'},
+    {n:'Seawater 20°C',cat:'liquid',rho:1025,mu:1.08,T:20,note:'Cooling / desal'},
+    {n:'Light crude oil 40°C',cat:'liquid',rho:850,mu:5.5,T:40,note:'Upstream O&G'},
+    {n:'Heavy crude oil 40°C',cat:'liquid',rho:945,mu:90,T:40,note:'Upstream O&G'},
+    {n:'Diesel 20°C',cat:'liquid',rho:840,mu:3.0,T:20,note:'Fuel systems'},
+    {n:'Gasoline 20°C',cat:'liquid',rho:740,mu:0.55,T:20,note:'Fuel systems'},
+    {n:'Kerosene / Jet-A 20°C',cat:'liquid',rho:810,mu:1.7,T:20,note:'Aviation fuel'},
+    {n:'Ethanol 20°C',cat:'liquid',rho:789,mu:1.2,T:20,note:'Chemical / bio'},
+    {n:'Methanol 20°C',cat:'liquid',rho:792,mu:0.59,T:20,note:'Chemical'},
+    {n:'Ethylene glycol 20°C',cat:'liquid',rho:1113,mu:16.9,T:20,note:'Coolant / MEG'},
+    {n:'Ammonia (liq) −33°C',cat:'liquid',rho:682,mu:0.26,T:-33,note:'Refrigeration'},
+    {n:'Propane (liq) 20°C',cat:'liquid',rho:500,mu:0.10,T:20,note:'LPG'},
+    {n:'Air 20°C',cat:'gas',rho:1.204,mu:0.0181,T:20,note:'Utility air'},
+    {n:'Nitrogen 20°C',cat:'gas',rho:1.165,mu:0.0176,T:20,note:'Inerting'},
+    {n:'Oxygen 20°C',cat:'gas',rho:1.331,mu:0.0203,T:20,note:'Process O₂'},
+    {n:'Carbon dioxide 20°C',cat:'gas',rho:1.842,mu:0.0147,T:20,note:'CCS / process'},
+    {n:'Methane 20°C',cat:'gas',rho:0.668,mu:0.0110,T:20,note:'Fuel gas'},
+    {n:'Natural gas (typ.) 20°C',cat:'gas',rho:0.78,mu:0.0110,T:20,note:'Pipeline'},
+    {n:'Hydrogen 20°C',cat:'gas',rho:0.0838,mu:0.0088,T:20,note:'H₂ service'},
+    {n:'Propane (vap) 20°C',cat:'gas',rho:1.87,mu:0.0080,T:20,note:'LPG vapour'},
+  ];
+  STEAM=[[1,99.6,0.590,0.0123],[2,120.2,1.129,0.0128],[5,151.8,2.669,0.0141],[10,179.9,5.147,0.0150],[20,212.4,10.05,0.0161],[40,250.4,20.10,0.0174],[60,275.6,30.83,0.0183],[80,295.0,42.51,0.0191],[100,311.0,55.46,0.0198]];
+  regimeOf(Re){ if(!isFinite(Re)||Re<=0) return {k:'none',l:'—',c:'var(--faint)'}; if(Re<2300) return {k:'lam',l:'Laminar',c:'var(--green)'}; if(Re<4000) return {k:'trans',l:'Transitional',c:'var(--amber)'}; return {k:'turb',l:'Turbulent',c:'var(--accent)'}; }
+  useFluid(f){ const vals={...this.state.vals}; const units={...this.state.units};
+    units.rho='kg/m³'; units.mu='cP'; units.temp='°C';
+    vals['fluid.densityKgM3']=String(f.rho); vals['fluid.dynamicViscosityPaS']=String(f.mu); vals['fluid.temperatureC']=String(f.T);
+    this.setState({vals,units,fluidPreset:'Custom',fluidLabel:f.n,page:'calculator'});
+  }
+  useSteam(row){ const [P,T,rho,mu]=row; const vals={...this.state.vals}; const units={...this.state.units};
+    units.rho='kg/m³'; units.mu='cP'; units.temp='°C'; units.P='bar';
+    vals['fluid.densityKgM3']=String(rho); vals['fluid.dynamicViscosityPaS']=String(mu); vals['fluid.temperatureC']=String(T); vals['fluid.pressureAbsPa']=String(P);
+    this.setState({vals,units,fluidPreset:'Custom',fluidLabel:'Sat. steam '+P+' bar',page:'calculator'});
+  }
+
+  /* ===== live flow simulation (canvas) ===== */
+  initSimCanvas = (cv)=>{
+    if(cv){ this._cv=cv;
+      if(!this._pts){ this._pts=[]; for(let i=0;i<130;i++) this._pts.push({x:Math.random(),r:(Math.random()*2-1)*0.94,ph:Math.random()*6.283,sp:0.8+Math.random()*0.4}); }
+      // always cancel any previous loop and restart — never trust a stale flag
+      if(this._raf) cancelAnimationFrame(this._raf);
+      const loop=(t)=>{ if(!this._cv||!this._cv.isConnected){ this._raf=null; return; } try{ this.drawSim(t); }catch(_){} this._raf=requestAnimationFrame(loop); };
+      this._raf=requestAnimationFrame(loop);
+    } else {
+      this._cv=null;
+      if(this._raf){ cancelAnimationFrame(this._raf); this._raf=null; }
+    }
+  };
+  drawSim(t){
+    const cv=this._cv; if(!cv) return; const ctx=cv.getContext('2d');
+    const P=this._sim||{V:1,beta:0.6,regime:'turb',Re:1e5,upD:0.25,downD:0.25};
+    const W=cv.width,H=cv.height;
+    const cs=getComputedStyle(cv);
+    const C=(v,fb)=>{ const x=cs.getPropertyValue(v).trim(); return x||fb; };
+    const dt=Math.min(0.05,Math.max(0.001,(t-(this._pt||t))/1000)); this._pt=t;
+    ctx.clearRect(0,0,W,H);
+    const top=64,bot=H-30,cy=(top+bot)/2,R=(bot-top)/2,Dpx=bot-top,px=W*0.55;
+    ctx.fillStyle=C('--panel2','#0d1626'); ctx.fillRect(16,top,W-32,Dpx);
+    ctx.strokeStyle=C('--border','#1e2c46'); ctx.lineWidth=1.5; ctx.strokeRect(16,top,W-32,Dpx);
+    const boreR=Math.max(6,P.beta*R);
+    ctx.globalAlpha=.9; ctx.fillStyle=C('--fg','#e7eef9');
+    ctx.fillRect(px-5,top,10,R-boreR); ctx.fillRect(px-5,cy+boreR,10,R-boreR);
+    ctx.globalAlpha=1;
+    const amber=C('--amber','#f59e0b'), accent=C('--accent','#22d3ee');
+    const upX=Math.max(30,px-(P.upD||0.25)*Dpx), dnX=Math.min(W-30,px+(P.downD||0.25)*Dpx);
+    [[upX,'p1'],[dnX,'p2']].forEach(([x,l])=>{
+      ctx.strokeStyle=amber; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(x,top); ctx.lineTo(x,top-22); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x,top-28,5,0,7); ctx.fillStyle=C('--panel','#101a2c'); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=C('--fg','#e7eef9'); ctx.font="600 12px Consolas,'Lucida Console',monospace"; ctx.textAlign='center'; ctx.fillText(l,x,top-40);
+    });
+    const lam=P.regime==='lam', trans=P.regime==='trans';
+    const base=Math.min(200,26+P.V*36+(lam?0:8));
+    const conv=0.10*W, jet=0.13*W, rec=0.22*W, sq0=Math.max(0.12,P.beta*0.82);
+    this._pts.forEach(p=>{
+      const xpx=16+p.x*(W-32);
+      const prof= lam ? 1.7*(1-p.r*p.r) : 1.18*(1-Math.pow(Math.abs(p.r),7));
+      let squeeze=1;
+      if(xpx>px-conv&&xpx<px){ const f=(xpx-(px-conv))/conv; squeeze=1-(1-sq0)*f*f; }
+      else if(xpx>=px&&xpx<px+jet){ squeeze=sq0; }
+      else if(xpx>=px+jet&&xpx<px+jet+rec){ const f=(xpx-px-jet)/rec; squeeze=sq0+(1-sq0)*(f*f*(3-2*f)); }
+      const rEff=p.r*squeeze;
+      let speed=base*p.sp*prof/Math.max(0.15,squeeze*squeeze);
+      speed=Math.min(speed,base*6);
+      let jig=0;
+      if(!lam){ const zone=(xpx>px&&xpx<px+jet+rec)?2.4:1; const amp=(trans?1.4:3.2)*zone; jig=Math.sin(t/95+p.ph*9+xpx/24)*amp+Math.sin(t/41+p.ph*3)*amp*0.4; }
+      p.x+=speed*dt/(W-32);
+      if(p.x>=1){ p.x=Math.random()*0.04; p.r=(Math.random()*2-1)*0.94; }
+      const y=cy+rEff*R+jig;
+      const fast=(speed/base-0.4)/3;
+      ctx.strokeStyle=fast>0.55?amber:accent;
+      ctx.globalAlpha=0.3+0.6*Math.min(1,Math.max(0.1,prof));
+      ctx.lineWidth=1.6;
+      ctx.beginPath(); ctx.moveTo(xpx-Math.max(3,speed*0.045),y); ctx.lineTo(xpx,y); ctx.stroke();
+    });
+    ctx.globalAlpha=1;
+    if(!lam){
+      ctx.strokeStyle=C('--faint','#5d6e8c'); ctx.lineWidth=1.2;
+      [[px+jet*0.5,top+(R-boreR)*0.5+6,1],[px+jet*0.5,bot-(R-boreR)*0.5-6,-1]].forEach(([ex,ey,dir])=>{
+        const a0=t/500*dir;
+        for(let ring=0;ring<2;ring++){ ctx.beginPath(); ctx.arc(ex,ey,5+ring*5,a0,a0+4.4); ctx.stroke(); }
+      });
+    }
+    ctx.strokeStyle=C('--blue','#60a5fa'); ctx.lineWidth=1.6; ctx.beginPath();
+    const pxp=70;
+    for(let i=0;i<=24;i++){ const r=-1+2*i/24; const u= lam?1.7*(1-r*r):1.18*(1-Math.pow(Math.abs(r),7)); const xx=pxp+u*30; const yy=cy+r*R*0.96; if(i===0)ctx.moveTo(pxp,yy); ctx.lineTo(xx,yy); }
+    ctx.lineTo(pxp,cy+R*0.96); ctx.stroke();
+    ctx.fillStyle=C('--blue','#60a5fa'); ctx.font="500 9px Consolas,'Lucida Console',monospace"; ctx.textAlign='left';
+    ctx.fillText(lam?'parabolic laminar profile':(trans?'transitional profile':'flat turbulent profile'),26,bot+18);
+    ctx.fillStyle=C('--faint','#5d6e8c'); ctx.textAlign='center';
+    ctx.fillText('β = '+P.beta.toFixed(3),px,bot+18);
+  }
+
+  /* ===== PAGES ===== */
+  pageTapping(r){
+    const regAuto=this.regimeOf(r.ReD);
+    const forced=this.state.simRegime&&this.state.simRegime!=='auto';
+    const regMap={lam:['Laminar','var(--green)'],trans:['Transitional','var(--amber)'],turb:['Turbulent','var(--accent)']};
+    const reg=forced?{k:this.state.simRegime,l:regMap[this.state.simRegime][0],c:regMap[this.state.simRegime][1]}:regAuto;
+    const D=r.D>0?r.D:0.1;
+    const upD=Math.max(0.02,parseFloat(this.state.tapUpD)||0.25), downD=Math.max(0.02,parseFloat(this.state.tapDownD)||0.25);
+    this._sim={V:isFinite(r.Vpipe)?Math.abs(r.Vpipe):0,beta:Math.min(0.9,Math.max(0.05,isFinite(r.beta)?r.beta:0.6)),regime:reg.k,Re:r.ReD,upD,downD};
+    const descMap={ corner:'Corner taps sit in the corner formed by the plate and pipe wall (≈ zero spacing). Common on smaller bores.', flange:'Flange taps are 25.4 mm (1 in) upstream and downstream of the plate faces — the most common arrangement.', d_d2:'D and D/2 taps sit one pipe diameter upstream and half a diameter downstream, near the vena contracta.', custom:'Custom spacing: position each tap freely with the sliders. Non-standard positions fall outside the standard coefficient correlations — flagged in the calculator warnings.' };
+    const slider=(label,k,val,min,max)=> e('div',{key:k},[
+      e('div',{key:'l',style:{display:'flex',justifyContent:'space-between',font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--muted)',letterSpacing:'.03em',textTransform:'uppercase',marginBottom:'5px'}},[e('span',{key:'a'},label),e('span',{key:'b',style:{color:'var(--fg)'}},val.toFixed(2)+'·D · '+(val*D*1000).toFixed(0)+' mm')]),
+      e('input',{key:'i',type:'range',min,max,step:0.01,value:val,'data-k':k,onInput:this.onTapD,style:{width:'100%',accentColor:'var(--accent)'}})
+    ]);
+    const gslider=(label,k,val,min,max,step,fmtFn)=> e('div',{key:'g'+k},[
+      e('div',{key:'l',style:{display:'flex',justifyContent:'space-between',font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--muted)',letterSpacing:'.03em',textTransform:'uppercase',marginBottom:'5px'}},[e('span',{key:'a'},label),e('span',{key:'b',style:{color:'var(--fg)'}},fmtFn(val))]),
+      e('input',{key:'i',type:'range',min,max,step,value:val,'data-k':k,onInput:this.onGeoSlider,style:{width:'100%',accentColor:'var(--accent)'}})
+    ]);
+    const fluidOpts=this.FLUIDS.map(f=>({v:f.n,l:f.n})); if(!this.FLUIDS.some(f=>f.n===this.state.fluidLabel)) fluidOpts.unshift({v:this.state.fluidLabel,l:this.state.fluidLabel});
+    const regNote={lam:'Re below ~2300 — viscous forces dominate; expect a parabolic velocity profile and smooth, orderly streaklines.',trans:'Re between ~2300 and 4000 — intermittent turbulence. Metering in this band is unreliable; coefficients are poorly defined.',turb:'Re above ~4000 — inertial mixing dominates; flat velocity profile with fluctuations. Orifice correlations assume developed turbulent flow.',none:'Enter valid inputs to compute a Reynolds number.'}[reg.k];
+    return this.wrap([
+      this.H('Tapping & Flow Simulator','Live particle animation driven by the current fluid: velocity profile, laminar / turbulent behaviour, jet contraction through the bore, and adjustable pressure-tap positions.'),
+      e('div',{key:'g',style:{display:'flex',gap:'16px',flexWrap:'wrap',alignItems:'flex-start'}},[
+        e('div',{key:'l',style:{flex:'1 1 480px',minWidth:'360px',display:'flex',flexDirection:'column',gap:'14px'}},[
+          this.P('Flow through the orifice — live', e('canvas',{width:680,height:340,ref:this.initSimCanvas,style:{width:'100%',height:'auto',display:'block'}})),
+          this.P('Flow regime', e('div',null,[
+            e('div',{key:'r',style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:'9px',marginBottom:'11px'}},[
+              this.metric('Regime',reg.l,'',reg.c), this.metric('Re_D',this.eng(r.ReD),''), this.metric('Pipe velocity',this.eng(r.Vpipe),'m/s'), this.metric('Orifice velocity',this.eng(r.Vorifice),'m/s','var(--amber)')
+            ]),
+            e('p',{key:'p',style:{margin:0,font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.6}},forced?('Demo override active — the animation is forced to '+reg.l.toLowerCase()+' while the actual Reynolds number ('+this.eng(r.ReD)+') implies '+regAuto.l.toLowerCase()+' flow.'):regNote)
+          ])),
+        ]),
+        e('div',{key:'rr',style:{flex:'1 1 270px',minWidth:'250px',display:'flex',flexDirection:'column',gap:'14px'}},[
+          this.P('Geometry & operating point', e('div',{style:{display:'flex',flexDirection:'column',gap:'13px'}},[
+            gslider('Pipe ID  D','D',this.fromSI(r.D,'length','mm'),25,600,1,(v)=>v.toFixed(0)+' mm'),
+            gslider('Beta ratio  β','beta',isFinite(r.beta)?Math.min(0.8,Math.max(0.1,r.beta)):0.6,0.1,0.8,0.005,(v)=>v.toFixed(3)+' · d '+(v*D*1000).toFixed(1)+' mm'),
+            gslider('Differential ΔP','dP',Math.log10(Math.min(200000,Math.max(50,r.dP||1000))),Math.log10(50),Math.log10(200000),0.01,(v)=>this.eng(Math.pow(10,v)/1000)+' kPa'),
+            this.lab('Fluid', this.selEl(this.state.fluidLabel,fluidOpts,{},this.onSimFluid)),
+            this.lab('Regime (animation)', this.seg(this.state.simRegime||'auto',[{v:'auto',l:'Auto'},{v:'lam',l:'Lam'},{v:'trans',l:'Trans'},{v:'turb',l:'Turb'}],this.onSimRegime)),
+          ])),
+          this.P('Tapping arrangement', e('div',{style:{display:'flex',flexDirection:'column',gap:'13px'}},[
+            this.seg(this.state.tapping,[{v:'corner',l:'Corner'},{v:'flange',l:'Flange'},{v:'d_d2',l:'D & D/2'},{v:'custom',l:'Custom'}],this.onSetTapping),
+            slider('Upstream tap p₁','tapUpD',upD,0.02,3),
+            slider('Downstream tap p₂','tapDownD',downD,0.02,2),
+            e('p',{key:'d',style:{margin:0,font:"400 11.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.55}},descMap[this.state.tapping]||descMap.custom)
+          ])),
+          this.P('Geometry', e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}},[ this.metric('Pipe D',this.eng(this.fromSI(r.D,'length','mm')),'mm'), this.metric('Bore d',this.eng(this.fromSI(r.d,'length','mm')),'mm'), this.metric('Beta β',r.beta.toFixed(3),'',(r.beta<0.1||r.beta>0.75)?'var(--amber)':'var(--green)'), this.metric('Fluid',this.state.fluidLabel,'') ])),
+          e('div',{key:'c',style:{background:'var(--panel)',border:'1px solid var(--border)',borderLeft:'3px solid var(--blue)',borderRadius:'13px',padding:'15px'}},[ e('div',{key:'a',style:{font:"600 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--blue)',marginBottom:'5px'}},'Conceptual visualisation'), e('p',{key:'b',style:{margin:0,font:"400 11.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.5}},'Particle motion illustrates regime and contraction qualitatively — it is not a CFD result. Use the standard for exact tap tolerances and coefficient equations.') ]),
+        ]),
+      ])
+    ]);
+  }
+
+  pageInstall(){
+    const i=this.state.inst; const res=this.instResult();
+    const fitOpts=Object.entries(this.INST_FITTINGS).map(([v,o])=>({v,l:o.l}));
+    const qOpts=[{v:'good',l:'Good / confirmed'},{v:'fair',l:'Fair'},{v:'poor',l:'Poor / unknown'}];
+    const condOpts=Object.entries(this.CONDS).map(([v,o])=>({v,l:o.l}));
+    const scoreColor=res.score>=80?'var(--green)':res.score>=55?'var(--amber)':'var(--red)';
+    const bar=(label,have,req)=>{ const pct=Math.min(100,req>0?have/req*100:100); return e('div',{key:label,style:{marginBottom:'11px'}},[ e('div',{key:'l',style:{display:'flex',justifyContent:'space-between',font:"500 11px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',marginBottom:'5px'}},[e('span',{key:'a'},label),e('span',{key:'b',style:{font:"500 11px Consolas,'Lucida Console',monospace",color:have>=req?'var(--green)':'var(--amber)'}},have.toFixed(0)+'D / '+req.toFixed(0)+'D')]), e('div',{key:'t',style:{height:'7px',borderRadius:'4px',background:'var(--panel2)',overflow:'hidden'}}, e('div',{style:{width:pct+'%',height:'100%',background:have>=req?'var(--green)':'var(--amber)'}})) ]); };
+    return this.wrap([
+      this.H('Installation Checker','Score the metering run against fitting type, straight length, pipe condition and flow-conditioner need. Straight-length values are educational placeholders — verify against ISO 5167-2 tables.'),
+      e('div',{key:'g',style:{display:'flex',gap:'16px',flexWrap:'wrap',alignItems:'flex-start'}},[
+        this.P('Upstream / downstream', e('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}},[
+          this.lab('Upstream fitting', this.selEl(i.up,fitOpts,{'data-k':'up'},this.onInstInput)),
+          this.lab('Downstream fitting', this.selEl(i.down,fitOpts,{'data-k':'down'},this.onInstInput)),
+          e('div',{key:'r',style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},[ this.lab('Upstream straight (D)', e('input',{type:'number','data-k':'upLen',value:i.upLen,onInput:this.onInstInput,style:this.inStyle()})), this.lab('Downstream straight (D)', e('input',{type:'number','data-k':'downLen',value:i.downLen,onInput:this.onInstInput,style:this.inStyle()})) ]),
+        ]),{flex:'1 1 300px',minWidth:'280px'}),
+        this.P('Pipe & device condition', e('div',{style:{display:'flex',flexDirection:'column',gap:'12px'}},[
+          this.lab('Straightness', this.selEl(i.straight,qOpts,{'data-k':'straight'},this.onInstInput)),
+          this.lab('Circularity', this.selEl(i.circ,qOpts,{'data-k':'circ'},this.onInstInput)),
+          this.lab('Internal cleanliness', this.selEl(i.clean,[{v:'clean',l:'Clean'},{v:'fair',l:'Some deposits'},{v:'dirty',l:'Fouled / unknown'}],{'data-k':'clean'},this.onInstInput)),
+          e('div',{key:'cb',style:{display:'flex',flexDirection:'column',gap:'9px',marginTop:'2px'}},[ this.chk('Pipe roughness known',i.roughKnown,'roughKnown',this.onInstInput), this.chk('Drain / vent near primary device',i.drain,'drain',this.onInstInput), this.chk('Flow conditioner installed',i.cond,'cond',this.onInstInput) ]),
+          i.cond?this.lab('Conditioner type', this.selEl(i.condType,condOpts,{'data-k':'condType'},this.onInstInput)):null,
+        ]),{flex:'1 1 300px',minWidth:'280px'}),
+        e('div',{key:'res',style:{flex:'1 1 280px',minWidth:'260px',display:'flex',flexDirection:'column',gap:'14px'}},[
+          e('div',{key:'s',style:{background:'var(--panel)',border:'1px solid var(--border)',borderRadius:'13px',padding:'18px',textAlign:'center'}},[ e('div',{key:'l',style:{font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--faint)',letterSpacing:'.06em',textTransform:'uppercase'}},'Installation quality'), e('div',{key:'v',style:{font:"700 46px Consolas,'Lucida Console',monospace",color:scoreColor,lineHeight:1.1,marginTop:'4px'}},res.score), e('div',{key:'u',style:{font:"500 11px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)'}},'/ 100') ]),
+          this.P('Straight-run check', e('div',null,[ bar('Upstream',res.haveUp,res.reqUp), bar('Downstream',res.haveDown,res.reqDown) ])),
+          res.needCond?e('div',{key:'nc',style:{background:'var(--panel)',border:'1px solid var(--amber)',borderRadius:'12px',padding:'13px 15px'}},[ e('div',{key:'a',style:{font:"600 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--amber)'}},'Flow conditioner recommended'), e('p',{key:'b',style:{margin:'4px 0 0',font:"400 11px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.5}},'Available straight run is short for this fitting. A conditioner or longer run will reduce installation uncertainty.') ]):null,
+          this.P('Findings', e('div',{style:{display:'flex',flexDirection:'column',gap:'9px'}}, res.notes.map((n,idx)=>e('div',{key:idx,style:{display:'flex',gap:'9px',alignItems:'flex-start'}},[ e('span',{key:'d',style:{width:'7px',height:'7px',borderRadius:'2px',flex:'none',marginTop:'4px',background:n.sev==='warning'?'var(--amber)':'var(--blue)'}}), e('div',{key:'t'},[ e('div',{key:'a',style:{font:"600 11.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--fg)'}},n.t), e('div',{key:'b',style:{font:"400 10.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--faint)',marginTop:'2px'}},n.a) ]) ])))),
+        ]),
+      ])
+    ]);
+  }
+
+  pageSim(r){
+    const ctx={D:r.D,rho:r.rho,C:r.C,eps:r.eps};
+    const ptsDp=[]; for(let i=1;i<=40;i++){const dp=r.dP*2*i/40;const q=this.qmFromDpD(dp,r.d,ctx);if(isFinite(q))ptsDp.push([dp/1000,q]);}
+    const ptsB=[]; for(let i=0;i<=40;i++){const b=0.1+0.75*i/40;const q=this.qmFromDpD(r.dP,b*r.D,ctx);if(isFinite(q))ptsB.push([b,q]);}
+    const ptsRho=[]; for(let i=0;i<=40;i++){const rho=r.rho*(0.4+1.6*i/40);const q=r.C*r.eps*(Math.PI/4)*r.d*r.d*Math.sqrt(2*r.dP*rho)/Math.sqrt(1-Math.pow(r.beta,4));ptsRho.push([rho,q]);}
+    const ptsMu=[]; for(let i=1;i<=40;i++){const mu=r.mu*(0.3+2.7*i/40);const re=4*r.qm/(Math.PI*mu*r.D);ptsMu.push([mu*1000,re]);}
+    const chartBox=(title,chart,note)=>this.P(title,[chart,note?e('div',{key:'n',style:{font:"400 10.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--faint)',marginTop:'4px'}},note):null]);
+    const exportCsv=()=>{ let csv='dP_kPa,qm_kg_s\n'+ptsDp.map(p=>p[0].toFixed(3)+','+p[1].toFixed(5)).join('\n'); this.download('dp-q-curve.csv',csv,'text/csv'); };
+    return this.wrap([
+      this.H('Sensitivity Charts','Live sensitivity of mass flow and Reynolds number to differential pressure, beta ratio, density and viscosity. The amber marker is the current operating point.'),
+      e('div',{key:'tools',style:{display:'flex',gap:'10px',marginBottom:'14px',flexWrap:'wrap'}},[ this.btn('Export ΔP–Q as CSV',exportCsv), this.btn('Open calculator',()=>this.setState({page:'calculator'})) ]),
+      e('div',{key:'grid',style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:'14px'}},[
+        chartBox('ΔP → Q (square-root response)',this.lineChart({series:[{pts:ptsDp,color:'var(--accent)'}],xlabel:'ΔP (kPa)',ylabel:'qm (kg/s)',mark:[r.dP/1000,r.qm],h:240})),
+        chartBox('β → Q (fixed D, ΔP)',this.lineChart({series:[{pts:ptsB,color:'var(--green)'}],xlabel:'β',ylabel:'qm (kg/s)',mark:[r.beta,r.qm],h:240}),'Higher β increases flow but narrows the valid coefficient band.'),
+        chartBox('Density → Q',this.lineChart({series:[{pts:ptsRho,color:'var(--amber)'}],xlabel:'ρ (kg/m³)',ylabel:'qm (kg/s)',mark:[r.rho,r.qm],h:240})),
+        chartBox('Viscosity → Re_D',this.lineChart({series:[{pts:ptsMu,color:'var(--blue)'}],xlabel:'μ (cP)',ylabel:'Re_D',mark:[r.mu*1000,r.ReD],h:240}),r.ReD<5000?'Re_D is low — discharge coefficient becomes uncertain.':'Re_D in a workable range for the current inputs.'),
+      ]),
+      e('div',{key:'note',style:{marginTop:'14px',background:'var(--panel)',border:'1px solid var(--border)',borderLeft:'3px solid var(--blue)',borderRadius:'12px',padding:'13px 15px',font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.5}},'Tapping selection affects the discharge coefficient and applicability in an exact ISO 5167-2 calculation. These curves hold C fixed, so changing tapping type does not move them here.'),
+    ]);
+  }
+
+  pageUnc(r){
+    const u=this.state.unc; const res=this.uncResult(r);
+    const fields=[['C','Discharge coefficient C'],['eps','Expansibility ε'],['d','Orifice bore d'],['D','Pipe diameter D'],['dP','Differential pressure ΔP'],['rho','Density ρ'],['install','Installation (added arithmetically)']];
+    return this.wrap([
+      this.H('Uncertainty Lab','Combined relative uncertainty by root-sum-square of component contributions. Installation uncertainty, if entered, is added arithmetically after the RSS.'),
+      e('div',{key:'g',style:{display:'flex',gap:'16px',flexWrap:'wrap',alignItems:'flex-start'}},[
+        this.P('Relative uncertainties (% , k=1)', e('div',{style:{display:'flex',flexDirection:'column',gap:'11px'}},[
+          this.lab('Mode', this.seg(u.mode,[{v:'iso',l:'ISO-style components'},{v:'edu',l:'Educational simplified'}],this.onUncMode)),
+          ...fields.map(([k,l])=>this.lab(l+'  (± %)', e('input',{key:k,type:'number',step:'0.01','data-k':k,value:u[k],onInput:this.onUncInput,style:this.inStyle()})))
+        ]),{flex:'1 1 320px',minWidth:'280px'}),
+        e('div',{key:'rr',style:{flex:'1 1 360px',minWidth:'300px',display:'flex',flexDirection:'column',gap:'14px'}},[
+          e('div',{key:'big',style:{background:'var(--panel)',border:'1px solid var(--border)',borderRadius:'13px',padding:'18px',display:'flex',gap:'18px',flexWrap:'wrap'}},[
+            e('div',{key:'a'},[ e('div',{key:'l',style:{font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--faint)',letterSpacing:'.05em',textTransform:'uppercase'}},'Combined uncertainty'), e('div',{key:'v',style:{font:"700 38px Consolas,'Lucida Console',monospace",color:'var(--accent)',lineHeight:1.1}},(res.combined*100<0.001?'—':'±'+(res.combined*100).toFixed(2)+'%')) ]),
+            e('div',{key:'b',style:{flex:1,minWidth:'160px',display:'grid',gridTemplateColumns:'1fr',gap:'8px',alignContent:'center'}},[ e('div',{key:'1',style:{font:"500 12px Consolas,'Lucida Console',monospace",color:'var(--fg)'}},'qm = '+this.eng(r.qm)+' ± '+this.eng(res.absQm)+' kg/s'), e('div',{key:'2',style:{font:"500 12px Consolas,'Lucida Console',monospace",color:'var(--fg)'}},'qv = '+this.eng(r.qv*3600)+' ± '+this.eng(res.absQv*3600)+' m³/h') ]),
+          ]),
+          this.P('Contribution to variance', e('div',{style:{display:'flex',flexDirection:'column',gap:'10px'}}, res.terms.map(t=>e('div',{key:t.k},[ e('div',{key:'l',style:{display:'flex',justifyContent:'space-between',font:"500 11px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',marginBottom:'4px'}},[e('span',{key:'a'},t.k),e('span',{key:'b',style:{font:"500 11px Consolas,'Lucida Console',monospace",color:'var(--fg)'}},t.pct.toFixed(1)+'%')]), e('div',{key:'t',style:{height:'8px',borderRadius:'4px',background:'var(--panel2)',overflow:'hidden'}}, e('div',{style:{width:Math.max(1,t.pct)+'%',height:'100%',background:t.color}})) ])))),
+          e('div',{key:'note',style:{background:'var(--panel)',border:'1px solid var(--border)',borderLeft:'3px solid var(--blue)',borderRadius:'12px',padding:'13px 15px',font:"400 11.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.5}},'Sensitivity coefficients follow the standard orifice propagation: C and ε at unity, d at 2/(1−β⁴), D at 2β⁴/(1−β⁴), ΔP and ρ at ½. The educational mode drops the β amplification on d and D.'),
+        ]),
+      ])
+    ]);
+  }
+
+  pageCond(){
+    const res=this.condResult(); const c=res.c;
+    const cards=Object.entries(this.CONDS).map(([k,o])=>{ const sel=k===this.state.condSel; return e('button',{key:k,'data-val':k,onClick:this.onCondSel,style:{textAlign:'left',cursor:'pointer',background:sel?'var(--elev)':'var(--panel2)',border:'1px solid '+(sel?'var(--accent)':'var(--border)'),borderRadius:'10px',padding:'11px 12px',display:'flex',flexDirection:'column',gap:'3px'}},[ e('div',{key:'a',style:{font:"600 12px 'Segoe UI',Tahoma,sans-serif",color:sel?'var(--accent)':'var(--fg)'}},o.l), e('div',{key:'b',style:{font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--faint)'}},'K ≈ '+o.K+(o.profile?' · swirl+profile':' · swirl only')) ]); });
+    return this.wrap([
+      this.H('Flow Conditioner Advisor','Compare conditioning devices and estimate the additional pressure loss ΔPc = K·ρ·V²/2 at the current pipe velocity. K values are indicative — compliance always depends on conditioner test data.'),
+      e('div',{key:'g',style:{display:'flex',gap:'16px',flexWrap:'wrap',alignItems:'flex-start'}},[
+        this.P('Conditioner', e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}},cards),{flex:'1 1 320px',minWidth:'280px'}),
+        e('div',{key:'d',style:{flex:'1 1 340px',minWidth:'300px',display:'flex',flexDirection:'column',gap:'14px'}},[
+          this.P(c.l, [ this.condSchematic(c), e('p',{key:'p',style:{margin:'10px 0 0',font:"400 12.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.6}},c.d) ]),
+          this.P('Effect', e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'9px'}},[ this.metric('Loss coeff. K',c.K,''), this.metric('Pipe velocity',this.eng(res.V),'m/s'), this.metric('ΔP across',this.eng(res.dPcKpa),'kPa','var(--amber)'), this.metric('Reduces',c.profile?'swirl + profile':'swirl',''), ])),
+          e('div',{key:'w',style:{background:'var(--panel)',border:'1px solid var(--border)',borderLeft:'3px solid var(--amber)',borderRadius:'12px',padding:'13px 15px',font:"400 11.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.5}},'A flow conditioner is not a substitute for a compliance test. Verify the device against the applicable standard section and the actual installation before relying on it.'),
+        ]),
+      ])
+    ]);
+  }
+
+  pageFluids(){
+    const s=this.state; const q=(s.fluidQ||'').toLowerCase();
+    const tabs=this.seg(s.fluidTab,[{v:'liquid',l:'Liquids'},{v:'gas',l:'Gases'},{v:'steam',l:'Saturated steam'}],this.onFluidTab);
+    const search=e('input',{type:'text',placeholder:'Search fluid…',value:s.fluidQ,onInput:this.onFluidQ,style:Object.assign(this.inStyle(),{maxWidth:'240px',font:"500 12px 'Segoe UI',Tahoma,sans-serif"})});
+    const useBtn=(fn)=>e('button',{onClick:fn,style:{cursor:'pointer',border:'1px solid var(--border)',background:'var(--panel2)',color:'var(--accent)',borderRadius:'7px',padding:'6px 12px',font:"600 11px 'Segoe UI',Tahoma,sans-serif"}},'Use');
+    const hd=(cols,labels)=>e('div',{key:'h',style:{display:'grid',gridTemplateColumns:cols,gap:'10px',padding:'0 13px 9px',font:"500 9.5px Consolas,'Lucida Console',monospace",color:'var(--faint)',letterSpacing:'.05em',textTransform:'uppercase'}},labels.map((l,i)=>e('span',{key:i},l)));
+    const mono={font:"500 12px Consolas,'Lucida Console',monospace",color:'var(--muted)'};
+    let table;
+    if(s.fluidTab==='steam'){
+      const cols='0.9fr 1fr 1fr 1fr auto';
+      table=e('div',null,[ hd(cols,['P abs (bar)','T sat (°C)','ρ vapour (kg/m³)','μ vapour (cP)','']),
+        ...this.STEAM.map(row=>e('div',{key:row[0],style:{display:'grid',gridTemplateColumns:cols,gap:'10px',alignItems:'center',padding:'10px 13px',borderBottom:'1px solid var(--grid)'}},[
+          e('div',{key:'p',style:{font:"600 12.5px Consolas,'Lucida Console',monospace",color:'var(--fg)'}},row[0]),
+          e('div',{key:'t',style:mono},row[1].toFixed(1)),
+          e('div',{key:'r',style:mono},row[2]),
+          e('div',{key:'m',style:mono},row[3]),
+          useBtn(()=>this.useSteam(row)),
+        ]))
+      ]);
+    } else {
+      const cols='1.5fr 0.9fr 0.9fr 0.55fr 1fr auto';
+      const list=this.FLUIDS.filter(f=>f.cat===s.fluidTab&&(!q||f.n.toLowerCase().includes(q)||f.note.toLowerCase().includes(q)));
+      table=e('div',null,[ hd(cols,['Fluid','ρ (kg/m³)','μ (cP)','T (°C)','Service','']),
+        ...(list.length?list.map(f=>e('div',{key:f.n,style:{display:'grid',gridTemplateColumns:cols,gap:'10px',alignItems:'center',padding:'10px 13px',borderBottom:'1px solid var(--grid)'}},[
+          e('div',{key:'n',style:{font:"600 12.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--fg)'}},f.n),
+          e('div',{key:'r',style:mono},f.rho),
+          e('div',{key:'m',style:mono},f.mu),
+          e('div',{key:'t',style:mono},f.T),
+          e('div',{key:'s',style:{font:"400 11px 'Segoe UI',Tahoma,sans-serif",color:'var(--faint)'}},f.note),
+          useBtn(()=>this.useFluid(f)),
+        ])):[e('div',{key:'none',style:{padding:'14px',font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--faint)'}},'No fluids match the search.')])
+      ]);
+    }
+    return this.wrap([
+      this.H('Fluids & Steam Tables','Reference properties for common industrial process fluids, plus a saturated-steam vapour table. "Use" loads the properties straight into the calculator; refine at real line conditions.'),
+      e('div',{key:'bar',style:{display:'flex',gap:'12px',flexWrap:'wrap',alignItems:'center',marginBottom:'14px'}},[tabs,e('div',{key:'sp',style:{flex:1}}),s.fluidTab!=='steam'?search:null]),
+      this.P(null,table),
+      e('div',{key:'w',style:{marginTop:'14px',background:'var(--panel)',border:'1px solid var(--border)',borderLeft:'3px solid var(--blue)',borderRadius:'12px',padding:'13px 15px',font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.5}},'Values are nominal reference points at the stated temperature (gases at ~1 atm unless noted; steam rows are saturated vapour). For final design use verified fluid data at the actual line pressure and temperature. For steam and gases remember the expansibility factor ε < 1.'),
+    ]);
+  }
+
+  pageReport(r){
+    const rep=this.buildReport(r);
+    const sec=(title,obj)=>this.P(title, e('div',{style:{display:'grid',gridTemplateColumns:'auto 1fr',gap:'6px 16px'}}, Object.entries(obj).flatMap(([k,v])=>[ e('div',{key:k+'k',style:{font:"500 11.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',textTransform:'capitalize'}},k.replace(/_/g,' ')), e('div',{key:k+'v',style:{font:"500 11.5px Consolas,'Lucida Console',monospace",color:'var(--fg)',textAlign:'right'}},String(v)) ])));
+    return this.wrap([
+      this.H('Report / Export','A full snapshot of the current calculation. Export as JSON or CSV, or print to PDF.'),
+      e('div',{key:'tools',className:'noprint',style:{display:'flex',gap:'10px',marginBottom:'16px',flexWrap:'wrap'}},[ this.btn('Export JSON',()=>this.download('iso5167-report.json',JSON.stringify(rep,null,2),'application/json'),true), this.btn('Export CSV',()=>{ const flat=Object.entries(rep).flatMap(([s,o])=>typeof o==='object'&&!Array.isArray(o)?Object.entries(o).map(([k,v])=>s+'.'+k+','+JSON.stringify(String(v))):[s+','+JSON.stringify(String(o))]); this.download('iso5167-report.csv','section.key,value\n'+flat.join('\n'),'text/csv'); }), this.btn('Print / PDF',()=>window.print()) ]),
+      e('div',{key:'grid',style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:'14px'}},[
+        sec('Metadata',rep.meta), sec('Fluid',rep.fluid), sec('Geometry',rep.geometry), sec('Coefficients',rep.coefficients), sec('Results',rep.results),
+        this.P('Warnings', e('div',{style:{display:'flex',flexDirection:'column',gap:'7px'}}, rep.warnings.map((w,i)=>e('div',{key:i,style:{font:"500 11px 'Segoe UI',Tahoma,sans-serif",color:w.startsWith('ERROR')?'var(--red)':w.startsWith('WARNING')?'var(--amber)':'var(--muted)'}},w)))),
+      ]),
+      e('div',{key:'dis',style:{marginTop:'14px',background:'var(--panel)',border:'1px solid var(--border)',borderLeft:'3px solid var(--blue)',borderRadius:'12px',padding:'14px 16px',font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.55}},rep.meta.disclaimer),
+    ]);
+  }
+
+  pageReference(){
+    const notes=[
+      ['Working principle','A restriction in a full-running pipe accelerates the fluid and creates a measurable pressure drop. The drop relates to flow through the orifice equation; flow varies with the square root of differential pressure.'],
+      ['Standard scope','ISO 5167 covers differential-pressure devices (orifice plate, nozzle, Venturi) in circular conduits running full, with single-phase, subsonic, non-pulsating flow. This tool focuses on the orifice plate.'],
+      ['Discharge coefficient','C accounts for the real, non-ideal contraction of the jet. It follows the ISO 5167-2 (Reader–Harris/Gallagher) equation as a function of β, Reynolds number and tapping type. In this tool you can either type C in (Manual) or let the calculator compute it (ISO 5167-2 auto, iterated with Re_D).'],
+      ['Expansibility','For incompressible liquids ε = 1. For gases the expansibility factor corrects for density change across the plate. The tool applies the ISO 5167-2 expansibility equation (from β, ΔP/p₁ and κ) when the fluid is flagged compressible in the auto model.'],
+      ['Tapping types','Corner, flange and D–D/2 taps differ in where the pressures are sensed. The choice affects the coefficient and the applicable β and Reynolds ranges in a compliant calculation.'],
+      ['Installation','Upstream fittings create swirl and asymmetric profiles. Minimum straight lengths (or a flow conditioner) restore a developed profile. Exact minimums depend on β and fitting type per ISO 5167-2.'],
+      ['Uncertainty','Combine the relative uncertainties of C, ε, d, D, ΔP and ρ by root-sum-square with their sensitivity coefficients. Installation effects are typically added on top.'],
+    ];
+    const formulas=[
+      ['Mass flow (orifice)','qm = C·ε·(π/4)·d²·√(2·ΔP·ρ₁) ⁄ √(1−β⁴)','The working equation. C·ε correct the ideal flow; the √(1−β⁴) term is the velocity-of-approach factor.'],
+      ['Volume flow','qv = qm ⁄ ρ','Convert mass to volumetric flow at the upstream density.'],
+      ['Beta ratio','β = d ⁄ D','Bore-to-pipe diameter ratio — the dominant geometric parameter.'],
+      ['Pipe Reynolds','Re_D = 4·qm ⁄ (π·μ·D)','Inertial-to-viscous ratio in the pipe; drives the discharge coefficient.'],
+      ['Discharge coefficient','C = 0.5961 + 0.0261β² − 0.216β⁸ + 0.000521(10⁶β/Re_D)^0.7 + …','Reader–Harris/Gallagher (2000) — the correlation adopted by ISO 5167-2, with tapping-dependent terms.'],
+      ['Expansibility (gas)','ε = 1 − (0.351 + 0.256β⁴ + 0.93β⁸)·(1 − (p₂/p₁)^{1/κ})','Corrects for gas density change across the plate. ε = 1 for liquids.'],
+      ['Permanent pressure loss','Δϖ ≈ (1 − β^1.9)·ΔP','Unrecovered pressure — the running energy cost of the measurement.'],
+      ['Combined uncertainty','(u/q) = √[ Σ (sensitivity·uₓ)² ]','Root-sum-square of each input’s relative uncertainty times its sensitivity coefficient.'],
+    ];
+    const glossary=[
+      ['β (beta ratio)','Ratio of orifice bore to pipe internal diameter, d/D.'],
+      ['C (discharge coefficient)','Ratio of actual to theoretical flow, accounting for the vena-contracta jet (~0.6 for orifices).'],
+      ['ε (expansibility)','Factor ≤ 1 correcting for compressible density change across the plate.'],
+      ['ΔP (differential pressure)','Pressure drop p₁ − p₂ measured across the primary device.'],
+      ['Vena contracta','The point just downstream of the plate where the jet is narrowest and velocity highest.'],
+      ['Re (Reynolds number)','Dimensionless flow-regime indicator; below ~2300 laminar, above ~4000 turbulent.'],
+      ['URL / span','Upper range limit — the ΔP a transmitter reports at full-scale flow.'],
+      ['Tapping','Location where p₁ and p₂ are sensed: corner, flange, or D and D/2.'],
+      ['Flow conditioner','Device that removes swirl and reshapes the velocity profile to shorten straight-run needs.'],
+      ['Custody transfer','Legally/fiscally metered flow — requires certified, standard-compliant measurement (not this tool).'],
+    ];
+    return this.wrap([
+      this.H('Reference Notes','Plain-language summaries, the governing formulas and a glossary. These are original explanations — consult the official ISO 5167 standard for exact equations, limits and tables.'),
+      this.P('Governing formulas', e('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(320px,1fr))',gap:'10px'}}, formulas.map(([t,f,d])=>e('div',{key:t,style:{background:'var(--panel2)',border:'1px solid var(--border)',borderRadius:'9px',padding:'11px 12px'}},[
+        e('div',{key:'t',style:{font:"600 11px 'Segoe UI',Tahoma,sans-serif",color:'var(--fg)',marginBottom:'6px'}},t),
+        e('div',{key:'f',style:{font:"500 12px/1.5 Consolas,'Lucida Console',monospace",color:'var(--accent)',overflowX:'auto',whiteSpace:'nowrap',marginBottom:'5px'}},f),
+        e('div',{key:'d',style:{font:"400 11px/1.5 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)'}},d),
+      ]))), {marginBottom:'14px'}),
+      e('div',{key:'g',style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:'14px'}}, notes.map(([t,b])=>this.P(t, e('p',{style:{margin:0,font:"400 12.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.6}},b)))),
+      this.P('Glossary', e('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:'8px 20px'}}, glossary.map(([t,d])=>e('div',{key:t,style:{display:'flex',gap:'8px',padding:'4px 0',borderBottom:'1px solid var(--grid)'}},[
+        e('span',{key:'t',style:{flex:'0 0 118px',font:"600 11.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--accent)'}},t),
+        e('span',{key:'d',style:{font:"400 11.5px/1.45 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)'}},d),
+      ]))), {marginTop:'14px'}),
+      e('div',{key:'dis',style:{marginTop:'14px',background:'var(--panel)',border:'1px solid var(--red)',borderRadius:'12px',padding:'14px 16px',font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.55}},'This application does not reproduce ISO 5167 text, tables or copyrighted coefficient tables. Formulas shown are implemented from published equations in original wording. It does not claim full ISO 5167-2 compliance — use it for learning and preliminary work only.'),
+    ]);
+  }
+
+  pageSettings(){
+    const scen=this.state.scenarios;
+    const list = scen.length? scen.map(s=>e('div',{key:s.id,style:{display:'flex',alignItems:'center',gap:'10px',padding:'10px 12px',borderBottom:'1px solid var(--grid)'}},[ e('div',{key:'a',style:{flex:1,minWidth:0}},[ e('div',{key:'n',style:{font:"600 12.5px 'Segoe UI',Tahoma,sans-serif",color:'var(--fg)'}},s.name), e('div',{key:'d',style:{font:"500 10px Consolas,'Lucida Console',monospace",color:'var(--faint)'}},new Date(s.createdAt).toLocaleString()) ]), e('button',{key:'l',onClick:()=>{this.loadScenario(s);this.setState({page:'calculator'});},style:{cursor:'pointer',border:'1px solid var(--border)',background:'var(--panel2)',color:'var(--accent)',borderRadius:'7px',padding:'6px 10px',font:"600 11px 'Segoe UI',Tahoma,sans-serif"}},'Load'), e('button',{key:'c',onClick:()=>this.dupScenario(s),style:{cursor:'pointer',border:'1px solid var(--border)',background:'var(--panel2)',color:'var(--muted)',borderRadius:'7px',padding:'6px 10px',font:"600 11px 'Segoe UI',Tahoma,sans-serif"}},'Copy'), e('button',{key:'x',onClick:()=>this.delScenario(s),style:{cursor:'pointer',border:'1px solid var(--border)',background:'var(--panel2)',color:'var(--red)',borderRadius:'7px',padding:'6px 10px',font:"600 11px 'Segoe UI',Tahoma,sans-serif"}},'Delete') ])) : [e('div',{key:'e',style:{padding:'14px',font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--faint)'}},'No saved scenarios yet. Save one from the Orifice Calculator.')];
+    return this.wrap([
+      this.H('Settings','Appearance, saved scenarios and the standing disclaimer.'),
+      e('div',{key:'g',style:{display:'flex',gap:'16px',flexWrap:'wrap',alignItems:'flex-start'}},[
+        e('div',{key:'l',style:{flex:'1 1 300px',minWidth:'280px',display:'flex',flexDirection:'column',gap:'14px'}},[
+          this.P('Appearance', e('div',{style:{display:'flex',gap:'10px',alignItems:'center'}},[ e('span',{key:'l',style:{font:"500 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)'}},'Theme'), this.seg(this.state.theme,[{v:'dark',l:'Dark'},{v:'light',l:'Light'}],(ev)=>this.setState({theme:ev.currentTarget.dataset.val})) ])),
+          this.P('Disclaimer', e('p',{style:{margin:0,font:"400 12px 'Segoe UI',Tahoma,sans-serif",color:'var(--muted)',lineHeight:1.6}},'This application is for engineering learning, preliminary calculation and sanity-checking only. It does not replace the official ISO 5167 standard, certified flow-computer software, vendor sizing software, laboratory calibration, or review by a qualified engineer.')),
+        ]),
+        e('div',{key:'r',style:{flex:'1 1 340px',minWidth:'300px',display:'flex',flexDirection:'column',gap:'14px'}},[
+          this.P('Saved scenarios', e('div',null,list)),
+          e('div',{key:'io',style:{display:'flex',gap:'10px',flexWrap:'wrap'}},[ this.btn('Export all (JSON)',this.exportScenarios), e('label',{key:'imp',style:{cursor:'pointer',border:'1px solid var(--border)',borderRadius:'9px',padding:'10px 16px',font:"600 12.5px 'Segoe UI',Tahoma,sans-serif",background:'var(--panel2)',color:'var(--fg)'}},['Import JSON',e('input',{key:'i',type:'file',accept:'application/json',onChange:this.importScenarios,style:{display:'none'}})]) ]),
+        ]),
+      ])
+    ]);
+  }
+
+  renderExtraPages(r){
+    switch(this.state.page){
+      case 'tapping': return this.pageTapping(r);
+      case 'installation': return this.pageInstall();
+      case 'simulation': return this.pageSim(r);
+      case 'uncertainty': return this.pageUnc(r);
+      case 'conditioner': return this.pageCond();
+      case 'fluids': return this.pageFluids();
+      case 'report': return this.pageReport(r);
+      case 'reference': return this.pageReference();
+      case 'settings': return this.pageSettings();
+      default: return null;
+    }
+  }
+}
+</script>
+</body>
+</html>
