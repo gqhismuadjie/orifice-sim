@@ -41,12 +41,34 @@ select{appearance:none;-webkit-appearance:none}
 @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @keyframes ledblink{0%,100%{opacity:1}50%{opacity:.5}}
+/* ---- responsive / mobile & tablet ---- */
+.rk-hamburger{display:none;align-items:center;justify-content:center;width:38px;height:38px;flex:none;border-radius:9px;border:1px solid var(--border);background:var(--panel2);color:var(--fg);cursor:pointer;font-size:19px}
+.rk-backdrop{display:none}
+@media (max-width:860px){
+  .rk-hamburger{display:flex}
+  .rk-header{padding:0 14px!important;gap:10px!important}
+  .rk-aside{position:fixed;top:0;left:0;bottom:0;z-index:50;transform:translateX(-102%);transition:transform .25s ease;box-shadow:var(--shadow)}
+  .rk-root.rk-nav-open .rk-aside{transform:translateX(0)}
+  .rk-root.rk-nav-open .rk-backdrop{display:block;position:fixed;inset:0;z-index:40;background:rgba(4,10,20,.5)}
+  .rk-badges{display:none!important}
+  .rk-canvas{padding:16px 13px 64px!important}
+  .rk-col{flex:1 1 100%!important;min-width:0!important}
+  .rk-tb-extra{display:none!important}
+  .rk-toolbar{overflow-x:auto;gap:10px;padding:0 13px}
+  .rk-title{font-size:14px!important}
+}
+@media (max-width:440px){
+  .rk-tourtxt{display:none}
+  .rk-canvas h1{font-size:21px!important}
+}
 @media print{.noprint{display:none!important}.rk-canvas{background-image:none!important}}
 </style>
 </helmet>
-<div data-theme="{{ theme }}" style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--bg);color:var(--fg)">
+<div data-theme="{{ theme }}" class="rk-root {{ navClass }}" style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--bg);color:var(--fg)">
 
-  <aside class="noprint" style="width:236px;flex:none;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--border)">
+  <div class="rk-backdrop noprint" onClick="{{ closeNav }}"></div>
+
+  <aside class="rk-aside noprint" style="width:236px;flex:none;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--border)">
     <div style="padding:18px 18px 14px;border-bottom:1px solid var(--border);display:flex;gap:11px;align-items:center">
       <div style="width:34px;height:34px;flex:none;border-radius:9px;background:linear-gradient(140deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;color:#04121a;font:700 15px/1 Consolas,'Lucida Console',monospace;box-shadow:0 0 0 1px var(--border)">R5</div>
       <div style="min-width:0">
@@ -70,31 +92,34 @@ select{appearance:none;-webkit-appearance:none}
   </aside>
 
   <main style="flex:1;display:flex;flex-direction:column;min-width:0">
-    <header class="noprint" style="flex:none;height:60px;display:flex;align-items:center;gap:14px;padding:0 22px;border-bottom:1px solid var(--border);background:var(--panel)">
-      <div style="font:600 15px/1 'Segoe UI',Tahoma,sans-serif;letter-spacing:-.01em">{{ pageTitle }}</div>
+    <header class="rk-header noprint" style="flex:none;height:60px;display:flex;align-items:center;gap:14px;padding:0 22px;border-bottom:1px solid var(--border);background:var(--panel)">
+      <button onClick="{{ onToggleNav }}" title="Menu" class="rk-hamburger">☰</button>
+      <div class="rk-title" style="font:600 15px/1 'Segoe UI',Tahoma,sans-serif;letter-spacing:-.01em">{{ pageTitle }}</div>
       <div style="flex:1"></div>
       <div style="display:flex;gap:8px;align-items:center">
-        <sc-for list="{{ statusBadges }}" as="b" hint-placeholder-count="4">
-          <div style="{{ b.style }}">
-            <span style="color:var(--faint);font:500 9px/1 Consolas,'Lucida Console',monospace;letter-spacing:.06em;text-transform:uppercase">{{ b.label }}</span>
-            <span style="color:{{ b.color }};font:600 11px/1 'Segoe UI',Tahoma,sans-serif">{{ b.value }}</span>
-          </div>
-        </sc-for>
-        <button onClick="{{ onStartTour }}" title="Guided tour" style="flex:none;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 12px;font:600 11.5px/1 'Segoe UI',Tahoma,sans-serif"><span style="font-size:13px">🎓</span>Guided tour</button>
+        <div class="rk-badges" style="display:flex;gap:8px;align-items:center">
+          <sc-for list="{{ statusBadges }}" as="b" hint-placeholder-count="4">
+            <div style="{{ b.style }}">
+              <span style="color:var(--faint);font:500 9px/1 Consolas,'Lucida Console',monospace;letter-spacing:.06em;text-transform:uppercase">{{ b.label }}</span>
+              <span style="color:{{ b.color }};font:600 11px/1 'Segoe UI',Tahoma,sans-serif">{{ b.value }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <button onClick="{{ onStartTour }}" title="Guided tour" style="flex:none;height:36px;border-radius:9px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 12px;font:600 11.5px/1 'Segoe UI',Tahoma,sans-serif"><span style="font-size:13px">🎓</span><span class="rk-tourtxt">Guided tour</span></button>
         <button onClick="{{ onToggleTheme }}" title="Toggle theme" style="width:36px;height:36px;flex:none;border-radius:9px;border:1px solid var(--border);background:var(--panel2);color:var(--fg);cursor:pointer;display:flex;align-items:center;justify-content:center">{{ themeIcon }}</button>
       </div>
     </header>
 
     <div class="rk-toolbar noprint">
       <span style="display:flex;align-items:center;gap:7px;font:600 9.5px/1 Consolas,'Lucida Console',monospace;color:var(--muted);letter-spacing:.09em"><span class="rk-led rk-led-pulse" style="color:var(--green)"></span>ACQUIRING</span>
-      <span class="rk-tbtn" style="color:var(--green)">▶ RUN</span>
-      <span class="rk-tbtn">■ STOP</span>
-      <div style="width:1px;height:18px;background:var(--border)"></div>
+      <span class="rk-tbtn rk-tb-extra" style="color:var(--green)">▶ RUN</span>
+      <span class="rk-tbtn rk-tb-extra">■ STOP</span>
+      <div class="rk-tb-extra" style="width:1px;height:18px;background:var(--border)"></div>
       <span style="font:600 9.5px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.07em">MODE</span>
       <span style="font:600 10.5px/1 Consolas,'Lucida Console',monospace;color:var(--accent)">{{ toolMode }}</span>
       <div style="flex:1"></div>
       <span style="display:flex;align-items:center;gap:7px;font:600 9.5px/1 Consolas,'Lucida Console',monospace;letter-spacing:.05em;color:{{ compColor }}"><span class="rk-led" style="color:{{ compColor }}"></span>{{ compLabel }}</span>
-      <span style="font:600 8.5px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.12em">FRONT&nbsp;PANEL</span>
+      <span class="rk-tb-extra" style="font:600 8.5px/1 Consolas,'Lucida Console',monospace;color:var(--faint);letter-spacing:.12em">FRONT&nbsp;PANEL</span>
     </div>
 
     <div class="rk-canvas" style="flex:1;overflow-y:auto;padding:24px 26px 60px">
@@ -145,7 +170,7 @@ select{appearance:none;-webkit-appearance:none}
         <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
 
           <!-- inputs -->
-          <div style="flex:0 0 268px;display:flex;flex-direction:column;gap:14px">
+          <div class="rk-col" style="flex:0 0 268px;display:flex;flex-direction:column;gap:14px">
             <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px">
               <div style="display:flex;align-items:center;gap:6px;font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:11px">Worked examples <span style="color:var(--faint);font-weight:500;text-transform:none;letter-spacing:0">· one click to load</span></div>
               {{ examplesRow }}
@@ -202,7 +227,7 @@ select{appearance:none;-webkit-appearance:none}
           </div>
 
           <!-- results -->
-          <div style="flex:1 1 320px;min-width:300px;display:flex;flex-direction:column;gap:16px">
+          <div class="rk-col" style="flex:1 1 320px;min-width:300px;display:flex;flex-direction:column;gap:16px">
             <div class="rk-screen rk-bezel" style="border-radius:13px;padding:16px 18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
               <div>
                 <div class="rk-cap" style="font:500 10px/1 Consolas,'Lucida Console',monospace;color:var(--screen-fg);letter-spacing:.06em;text-transform:uppercase">{{ heroLabel }}</div>
@@ -271,7 +296,7 @@ select{appearance:none;-webkit-appearance:none}
           </div>
 
           <!-- notes -->
-          <div style="flex:1 1 270px;min-width:250px;display:flex;flex-direction:column;gap:14px">
+          <div class="rk-col" style="flex:1 1 270px;min-width:250px;display:flex;flex-direction:column;gap:14px">
             <div style="background:var(--panel);border:1px solid var(--border);border-radius:13px;padding:15px">
               <div style="font:600 11px/1 Consolas,'Lucida Console',monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px">Governing equations</div>
               <div style="background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:12px 13px;font:500 12px/1.9 Consolas,'Lucida Console',monospace;color:var(--fg);overflow-x:auto;white-space:nowrap">qm = C·ε·(π/4)·d²·√(2·Δp·ρ₁) ⁄ √(1−β⁴)<br/>qv = qm ⁄ ρ<br/>Re_D = 4·qm ⁄ (π·μ·D)<br/>Re_d = Re_D ⁄ β</div>
@@ -376,6 +401,8 @@ class Component extends DCLogic {
     coefModel:'manual', compressible:false, showMath:false,
     // guided tour / onboarding
     tourOn:false, tourStep:0,
+    // mobile navigation drawer
+    navOpen:false,
     units:{rho:'kg/m³',mu:'cP',temp:'°C',P:'kPa',D:'mm',d:'mm',DP:'kPa',P2:'kPa',Fm:'kg/s',Fv:'m³/h',rgh:'mm'},
     // uncertainty (%)
     unc:{C:0.5,eps:0.0,d:0.05,D:0.4,dP:0.30,rho:0.10,install:0.0,mode:'iso'},
@@ -436,7 +463,9 @@ class Component extends DCLogic {
   }
 
   /* ---------- handlers ---------- */
-  onNavClick = (ev)=>{ const t=ev.currentTarget; this.setState({page:t.dataset.val}); };
+  onNavClick = (ev)=>{ const t=ev.currentTarget; this.setState({page:t.dataset.val,navOpen:false}); };
+  onToggleNav = ()=> this.setState(s=>({navOpen:!s.navOpen}));
+  closeNav = ()=> this.setState({navOpen:false});
   onToggleTheme = ()=> this.setState(s=>({theme:s.theme==='dark'?'light':'dark'}));
   onGoReport = ()=> this.setState({page:'report'});
 
@@ -990,6 +1019,7 @@ class Component extends DCLogic {
       showMath:s.showMath, onToggleMath:this.onToggleMath, mathToggleLabel:s.showMath?'Hide working':'Show working', mathPanel:s.showMath?this.mathBreakdown(r):null,
       examplesRow:this.examplesRow(),
       onStartTour:this.startTour, tourOverlay:this.renderTour(),
+      onToggleNav:this.onToggleNav, closeNav:this.closeNav, navClass:s.navOpen?'rk-nav-open':'',
       toolMode:modeLbl,
       extraPages:this.renderExtraPages(r),
     };
